@@ -336,18 +336,12 @@ export default function Home() {
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="text-xs font-semibold text-[#8C6239] hover:text-[#C59B27] bg-[#FFFFFF] border border-[#E6DFD5] px-3 py-1.5 rounded-xl shadow-xs"
-                >
-                  ⚙️ Configurar Socios y Presupuesto
-                </button>
+              <div className="flex justify-end">
                 <button
                   onClick={handleResetToZero}
                   className="text-[11px] text-[#A39E93] hover:text-[#C84B31] transition-colors"
                 >
-                  Vaciar y empezar desde 0
+                  Vaciar proyecto
                 </button>
               </div>
               <DashboardView
@@ -356,7 +350,6 @@ export default function Home() {
                 logbook={logbook}
                 milestones={milestones}
                 budget={budget}
-                onOpenSettings={() => setIsSettingsOpen(true)}
                 onSelectTask={(task) => {
                   setSelectedTask(task);
                   setIsModalOpen(true);

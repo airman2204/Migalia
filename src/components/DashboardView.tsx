@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Task, Partner, LogbookEntry, Milestone } from '@/types';
-import { CheckCircle, Clock, AlertTriangle, TrendingUp, Users, Settings } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, TrendingUp, Users } from 'lucide-react';
 
 interface DashboardViewProps {
   tasks: Task[];
@@ -10,7 +10,6 @@ interface DashboardViewProps {
   logbook: LogbookEntry[];
   milestones: Milestone[];
   budget: number;
-  onOpenSettings: () => void;
   onSelectTask: (task: Task) => void;
   onGoToTab: (tab: any) => void;
 }
@@ -21,7 +20,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   logbook,
   milestones,
   budget,
-  onOpenSettings,
   onSelectTask,
   onGoToTab,
 }) => {
@@ -52,24 +50,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-4 bg-[#F8F6F0] border border-[#E6DFD5] px-5 py-3.5 rounded-2xl shrink-0">
-            <div>
-              <p className="text-[10px] text-[#6E665D] uppercase font-bold tracking-wider">Avance Global</p>
-              <p className="text-2xl font-bold text-[#221F1D]">{completionRate}%</p>
-            </div>
-            <div className="w-12 h-12 rounded-full border-4 border-[#C59B27] border-t-transparent flex items-center justify-center font-bold text-xs text-[#221F1D]">
-              {completedTasks}/{totalTasks}
-            </div>
+        <div className="flex items-center gap-4 bg-[#F8F6F0] border border-[#E6DFD5] px-5 py-3.5 rounded-2xl shrink-0">
+          <div>
+            <p className="text-[10px] text-[#6E665D] uppercase font-bold tracking-wider">Avance Global</p>
+            <p className="text-2xl font-bold text-[#221F1D]">{completionRate}%</p>
           </div>
-
-          <button
-            onClick={onOpenSettings}
-            className="p-3 bg-[#FFFFFF] hover:bg-[#F8F6F0] border border-[#E6DFD5] rounded-2xl text-[#6E665D] hover:text-[#221F1D] transition-colors shadow-xs"
-            title="Configurar Socios y Presupuesto"
-          >
-            <Settings className="w-5 h-5 text-[#8C6239]" />
-          </button>
+          <div className="w-12 h-12 rounded-full border-4 border-[#C59B27] border-t-transparent flex items-center justify-center font-bold text-xs text-[#221F1D]">
+            {completedTasks}/{totalTasks}
+          </div>
         </div>
       </div>
 
@@ -85,7 +73,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="bg-[#FFFFFF] border border-[#E6DFD5] p-4 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between text-[#C84B31] mb-2">
+          <div className="flex items-center justify-between text-[#DC2626] mb-2">
             <span className="text-xs font-semibold">Atención Urgente</span>
             <AlertTriangle className="w-4 h-4" />
           </div>
@@ -94,7 +82,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="bg-[#FFFFFF] border border-[#E6DFD5] p-4 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between text-[#4A6B53] mb-2">
+          <div className="flex items-center justify-between text-[#16A34A] mb-2">
             <span className="text-xs font-semibold">Completadas</span>
             <CheckCircle className="w-4 h-4" />
           </div>
@@ -102,23 +90,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <p className="text-[11px] text-[#6E665D] mt-1">Tareas finalizadas</p>
         </div>
 
-        {/* Presupuesto Editable */}
-        <div
-          onClick={onOpenSettings}
-          className="bg-[#FFFFFF] border border-[#E6DFD5] hover:border-[#C59B27] p-4 rounded-2xl shadow-xs cursor-pointer transition-all group"
-          title="Haz clic para editar el presupuesto"
-        >
+        {/* Presupuesto */}
+        <div className="bg-[#FFFFFF] border border-[#E6DFD5] p-4 rounded-2xl shadow-xs">
           <div className="flex items-center justify-between text-[#221F1D] mb-2">
-            <span className="text-xs font-semibold group-hover:text-[#8C6239]">Presupuesto CAPEX</span>
+            <span className="text-xs font-semibold">Presupuesto CAPEX</span>
             <TrendingUp className="w-4 h-4 text-[#C59B27]" />
           </div>
           <p className="text-2xl font-bold text-[#221F1D]">
             ${budget.toLocaleString('es-MX')}
           </p>
-          <p className="text-[11px] text-[#6E665D] mt-1 flex items-center justify-between">
-            <span>MXN Estimado</span>
-            <span className="text-[10px] text-[#8C6239] font-semibold underline">Editar</span>
-          </p>
+          <p className="text-[11px] text-[#6E665D] mt-1">MXN Estimado</p>
         </div>
       </div>
 
@@ -130,12 +111,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Users className="w-4 h-4 text-[#C59B27]" />
               <h2 className="text-sm font-bold text-[#221F1D]">Distribución de Trabajo</h2>
             </div>
-            <button
-              onClick={onOpenSettings}
-              className="text-[11px] text-[#8C6239] hover:text-[#C59B27] font-semibold"
-            >
-              Gestionar Socios
-            </button>
+            <span className="text-[10px] text-[#6E665D] bg-[#F2EFE9] px-2.5 py-0.5 rounded-full font-medium">
+              Por Socio
+            </span>
           </div>
 
           <div className="space-y-3">
