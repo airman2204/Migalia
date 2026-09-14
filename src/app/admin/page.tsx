@@ -421,6 +421,7 @@ export default function Home() {
                 setIsModalOpen(true);
               }}
               onStatusChange={handleStatusChange}
+              onGoToKanban={() => setActiveTab('kanban')}
             />
           )}
 

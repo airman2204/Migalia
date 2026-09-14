@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Task, Partner, TaskStatus, Priority } from '@/types';
-import { Search, Filter, Clock, CheckSquare, Plus, Trash2 } from 'lucide-react';
+import { Search, Filter, Clock, CheckSquare, Plus, ArrowRight } from 'lucide-react';
 
 interface TasksListViewProps {
   tasks: Task[];
@@ -10,6 +10,7 @@ interface TasksListViewProps {
   onSelectTask: (task: Task) => void;
   onOpenNewTask: () => void;
   onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onGoToKanban?: () => void;
 }
 
 export const TasksListView: React.FC<TasksListViewProps> = ({
@@ -18,6 +19,7 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
   onSelectTask,
   onOpenNewTask,
   onStatusChange,
+  onGoToKanban,
 }) => {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -25,28 +27,44 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
   const getPartner = (id: string) => partners.find((p) => p.id === id);
 
   const filteredTasks = tasks.filter((t) => {
-    const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase()) ||
+    const matchesSearch =
+      t.title.toLowerCase().includes(search.toLowerCase()) ||
       t.description.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || t.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
-  const getStatusLabel = (status: TaskStatus) => {
-    switch (status) {
-      case 'backlog': return 'Ideas';
-      case 'todo': return 'Por Hacer';
-      case 'in_progress': return 'En Proceso';
-      case 'review': return 'Revisión';
-      case 'done': return 'Terminado';
-    }
-  };
-
+  // Código de color exacto solicitado:
+  // - Alta: ROJO (#DC2626)
+  // - Urgente: NARANJA (#EA580C)
+  // - Media: AMARILLA (#CA8A04)
+  // - Baja: VERDE (#16A34A)
   const getPriorityBadge = (priority: Priority) => {
     switch (priority) {
-      case 'urgent': return <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FDF0ED] text-[#C84B31]">Urgente</span>;
-      case 'high': return <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEF3C7] text-[#D97706]">Alta</span>;
-      case 'medium': return <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#F2EFE9] text-[#6E665D]">Media</span>;
-      default: return <span className="text-[10px] font-normal px-2 py-0.5 rounded-md bg-[#F8F6F0] text-[#A39E93]">Baja</span>;
+      case 'high':
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FDF0ED] text-[#DC2626] border border-[#FECACA]">
+            Alta
+          </span>
+        );
+      case 'urgent':
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FFF7ED] text-[#EA580C] border border-[#FED7AA]">
+            Urgente
+          </span>
+        );
+      case 'medium':
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEFCE8] text-[#CA8A04] border border-[#FEF08A]">
+            Media
+          </span>
+        );
+      default:
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
+            Baja
+          </span>
+        );
     }
   };
 
@@ -59,17 +77,29 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
             Lista de Actividades de Apertura
           </h2>
           <p className="text-xs text-[#6E665D]">
-            Desglose tabular completo de tareas por frente de trabajo.
+            Crea y planifica tus actividades aquí; se sincronizan automáticamente con el Tablero Kanban y la base de datos.
           </p>
         </div>
 
-        <button
-          onClick={onOpenNewTask}
-          className="flex items-center gap-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-semibold px-4 py-2 rounded-xl shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-3.5 h-3.5 text-[#C59B27]" />
-          <span>Nueva Tarea</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {onGoToKanban && (
+            <button
+              onClick={onGoToKanban}
+              className="flex items-center gap-1.5 bg-[#FFFFFF] hover:bg-[#F8F6F0] text-[#8C6239] text-xs font-semibold px-3.5 py-2 rounded-xl border border-[#E6DFD5] shadow-xs"
+            >
+              <span>Ver en Kanban</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#C59B27]" />
+            </button>
+          )}
+
+          <button
+            onClick={onOpenNewTask}
+            className="flex items-center gap-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-semibold px-4 py-2 rounded-xl shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#C59B27]" />
+            <span>Nueva Actividad</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters Bar */}
@@ -119,51 +149,59 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2EFE9]">
-              {filteredTasks.map((t) => {
-                const partner = getPartner(t.assignedTo);
-                const doneCount = t.subtasks.filter((s) => s.completed).length;
+              {filteredTasks.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-xs text-[#A39E93]">
+                    No hay actividades registradas en esta vista. Haz clic en <strong>+ Nueva Actividad</strong> para agregar la primera.
+                  </td>
+                </tr>
+              ) : (
+                filteredTasks.map((t) => {
+                  const partner = getPartner(t.assignedTo);
+                  const doneCount = t.subtasks.filter((s) => s.completed).length;
 
-                return (
-                  <tr
-                    key={t.id}
-                    onClick={() => onSelectTask(t)}
-                    className="hover:bg-[#FAF8F5] cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3 font-semibold text-[#221F1D] max-w-xs truncate">
-                      {t.title}
-                    </td>
-                    <td className="px-3 py-3 text-[#8C6239] font-medium">
-                      {t.category}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]">
-                        {partner?.shortName || 'Sin asignar'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">{getPriorityBadge(t.priority)}</td>
-                    <td className="px-3 py-3">
-                      <select
-                        value={t.status}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => onStatusChange(t.id, e.target.value as TaskStatus)}
-                        className="text-[11px] bg-[#F8F6F0] border border-[#E6DFD5] rounded-md px-2 py-0.5 text-[#221F1D] focus:outline-none"
-                      >
-                        <option value="backlog">Ideas</option>
-                        <option value="todo">Por Hacer</option>
-                        <option value="in_progress">En Proceso</option>
-                        <option value="review">Revisión</option>
-                        <option value="done">Terminado</option>
-                      </select>
-                    </td>
-                    <td className="px-3 py-3 text-[#6E665D]">
-                      {t.dueDate}
-                    </td>
-                    <td className="px-3 py-3 text-right text-[#6E665D] font-medium">
-                      {t.subtasks.length > 0 ? `${doneCount}/${t.subtasks.length}` : '-'}
-                    </td>
-                  </tr>
-                );
-              })}
+                  return (
+                    <tr
+                      key={t.id}
+                      onClick={() => onSelectTask(t)}
+                      className="hover:bg-[#FAF8F5] cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3 font-semibold text-[#221F1D] max-w-xs truncate">
+                        {t.title}
+                      </td>
+                      <td className="px-3 py-3 text-[#8C6239] font-medium">
+                        {t.category}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]">
+                          {partner?.shortName || 'Sin asignar'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">{getPriorityBadge(t.priority)}</td>
+                      <td className="px-3 py-3">
+                        <select
+                          value={t.status}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => onStatusChange(t.id, e.target.value as TaskStatus)}
+                          className="text-[11px] bg-[#F8F6F0] border border-[#E6DFD5] rounded-md px-2 py-0.5 text-[#221F1D] focus:outline-none"
+                        >
+                          <option value="backlog">Ideas</option>
+                          <option value="todo">Por Hacer</option>
+                          <option value="in_progress">En Proceso</option>
+                          <option value="review">Revisión</option>
+                          <option value="done">Terminado</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-3 text-[#6E665D]">
+                        {t.dueDate}
+                      </td>
+                      <td className="px-3 py-3 text-right text-[#6E665D] font-medium">
+                        {t.subtasks.length > 0 ? `${doneCount}/${t.subtasks.length}` : '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

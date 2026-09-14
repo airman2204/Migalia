@@ -38,16 +38,37 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     onStatusChange(draggableId, newStatus);
   };
 
+  // Código de color exacto solicitado:
+  // - Alta: ROJO (#C84B31)
+  // - Urgente: NARANJA (#EA580C)
+  // - Media: AMARILLA (#CA8A04)
+  // - Baja: VERDE (#16A34A)
   const getPriorityBadge = (priority: Task['priority']) => {
     switch (priority) {
-      case 'urgent':
-        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FDF0ED] text-[#C84B31] border border-[#F5C6BC]">Urgente</span>;
       case 'high':
-        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">Alta</span>;
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FDF0ED] text-[#DC2626] border border-[#FECACA]">
+            Alta
+          </span>
+        );
+      case 'urgent':
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FFF7ED] text-[#EA580C] border border-[#FED7AA]">
+            Urgente
+          </span>
+        );
       case 'medium':
-        return <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#F2EFE9] text-[#6E665D] border border-[#DDD5C7]">Media</span>;
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEFCE8] text-[#CA8A04] border border-[#FEF08A]">
+            Media
+          </span>
+        );
       default:
-        return <span className="text-[10px] font-normal px-2 py-0.5 rounded-md bg-[#F8F6F0] text-[#A39E93]">Baja</span>;
+        return (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
+            Baja
+          </span>
+        );
     }
   };
 
