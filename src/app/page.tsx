@@ -9,6 +9,7 @@ import { TasksListView } from '@/components/TasksListView';
 import { LogbookView } from '@/components/LogbookView';
 import { MilestonesView } from '@/components/MilestonesView';
 import { TaskModal } from '@/components/TaskModal';
+import { LoginScreen } from '@/components/LoginScreen';
 
 import {
   DEFAULT_PARTNERS,
@@ -16,10 +17,13 @@ import {
   EMPTY_LOGBOOK,
   INITIAL_MILESTONES,
 } from '@/lib/initialData';
-import { Task, LogbookEntry, TaskStatus, Milestone } from '@/types';
+import { Task, LogbookEntry, TaskStatus, Milestone, Partner } from '@/types';
 
 export default function Home() {
-  // Estado local con persistencia en localStorage para que tus datos reales no se pierdan
+  // Autenticación de Socio Activo
+  const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
+
+  // Estado local con persistencia en localStorage
   const [partners, setPartners] = useState(DEFAULT_PARTNERS);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
@@ -35,9 +39,16 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
 
-  // Cargar datos reales guardados en el navegador
+  // Cargar sesión y datos guardados en el navegador
   useEffect(() => {
     try {
+      const savedUser = localStorage.getItem('migalia_auth_partner');
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        setCurrentPartner(parsed);
+        setSelectedPartnerFilter(parsed.id); // Al entrar, abre por defecto su propio espacio
+      }
+
       const savedTasks = localStorage.getItem('migalia_tasks');
       const savedLogbook = localStorage.getItem('migalia_logbook');
       const savedMilestones = localStorage.getItem('migalia_milestones');
@@ -56,6 +67,19 @@ export default function Home() {
       setIsLoaded(true);
     }
   }, []);
+
+  // Manejador de Login
+  const handleLogin = (partner: Partner) => {
+    setCurrentPartner(partner);
+    setSelectedPartnerFilter(partner.id);
+    localStorage.setItem('migalia_auth_partner', JSON.stringify(partner));
+  };
+
+  // Manejador de Logout
+  const handleLogout = () => {
+    setCurrentPartner(null);
+    localStorage.removeItem('migalia_auth_partner');
+  };
 
   // Guardar automáticamente en localStorage ante cualquier cambio
   useEffect(() => {
@@ -142,6 +166,11 @@ export default function Home() {
     milestones: milestones.length,
   };
 
+  // Si no está autenticado, renderiza la pantalla de bienvenida y login
+  if (isLoaded && !currentPartner) {
+    return <LoginScreen partners={partners} onLogin={handleLogin} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F6F0]">
       {/* Top Navigation */}
@@ -149,11 +178,13 @@ export default function Home() {
         currentFilter={selectedPartnerFilter}
         onFilterChange={setSelectedPartnerFilter}
         partners={partners}
+        currentPartner={currentPartner}
         onOpenNewTask={() => {
           setSelectedTask(null);
           setPresetStatus('todo');
           setIsModalOpen(true);
         }}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 flex flex-col md:flex-row">

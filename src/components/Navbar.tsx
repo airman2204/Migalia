@@ -2,20 +2,24 @@
 
 import React from 'react';
 import { Partner } from '@/types';
-import { User, Users, Plus, Bell } from 'lucide-react';
+import { User, Users, Plus, LogOut } from 'lucide-react';
 
 interface NavbarProps {
   currentFilter: 'all' | string;
   onFilterChange: (filter: 'all' | string) => void;
   partners: Partner[];
+  currentPartner: Partner | null;
   onOpenNewTask: () => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentFilter,
   onFilterChange,
   partners,
+  currentPartner,
   onOpenNewTask,
+  onLogout,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/90 backdrop-blur-md border-b border-[#E6DFD5] px-4 lg:px-8 py-3.5 transition-all">
@@ -75,8 +79,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden sm:inline">Nueva Actividad</span>
           </button>
 
-          <div className="w-8 h-8 rounded-full bg-[#EBE7DF] border border-[#DDD5C7] flex items-center justify-center text-[#221F1D] font-bold text-xs">
-            M
+          {/* User Profile / Logout */}
+          <div className="flex items-center gap-2 pl-2 border-l border-[#E6DFD5]">
+            <div
+              title={`Sesión iniciada como ${currentPartner?.name || 'Socio'}`}
+              className="w-8 h-8 rounded-full bg-[#EBE7DF] border border-[#DDD5C7] flex items-center justify-center text-[#221F1D] font-bold text-xs"
+            >
+              {currentPartner?.shortName?.charAt(currentPartner.shortName.length - 1) || 'M'}
+            </div>
+            <button
+              onClick={onLogout}
+              title="Cerrar Sesión"
+              className="p-1.5 rounded-lg text-[#6E665D] hover:text-[#C84B31] hover:bg-[#FDF0ED] transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
