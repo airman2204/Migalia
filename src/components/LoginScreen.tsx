@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Partner } from '@/types';
-import { ArrowRight, Mail, Lock, AlertCircle, XCircle } from 'lucide-react';
+import { ArrowRight, Mail, Lock, XCircle, Eye, EyeOff } from 'lucide-react';
 
 interface LoginScreenProps {
   partners: Partner[];
@@ -12,8 +12,22 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Cargar correo recordado si existe
+  useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem('migalia_remember_email');
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   // Validación real con los servidores de correo
   const handleLogin = async (e: React.FormEvent) => {
@@ -21,12 +35,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
     setErrorMessage('');
 
     if (!email.trim()) {
-      setErrorMessage('Por favor escribe tu correo.');
+      setErrorMessage('Por favor ingresa tu correo.');
       return;
     }
 
     if (!password.trim()) {
-      setErrorMessage('Por favor escribe tu contraseña.');
+      setErrorMessage('Por favor ingresa tu contraseña.');
       return;
     }
 
@@ -52,6 +66,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
         return;
       }
 
+      // Si seleccionó recordar correo
+      if (rememberMe) {
+        localStorage.setItem('migalia_remember_email', email.trim());
+      } else {
+        localStorage.removeItem('migalia_remember_email');
+      }
+
       onLogin(data.user);
     } catch (err) {
       setErrorMessage('No fue posible conectar con el servidor de autenticación. Revisa tu conexión.');
@@ -61,22 +82,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F6F0] flex flex-col justify-center items-center p-4 sm:p-8">
+    <div className="relative min-h-screen bg-[#F8F6F0] flex flex-col justify-center items-center p-4 sm:p-8 overflow-hidden selection:bg-[#C59B27] selection:text-[#FFFFFF]">
+      {/* Resplandor ambiental de fondo (Glow 2700K cálido / Japandi) */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#EFE4CF] rounded-full filter blur-3xl opacity-50 pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#EBE0CD] rounded-full filter blur-3xl opacity-50 pointer-events-none" />
+
       {/* Brand Central Grande */}
-      <div className="text-center mb-8">
+      <div className="relative z-10 text-center mb-8 space-y-2">
         <div className="flex items-baseline justify-center tracking-widest text-[#221F1D]">
-          <span className="text-4xl sm:text-5xl font-bold tracking-[0.25em]">M</span>
-          <span className="text-4xl sm:text-5xl font-bold tracking-[0.25em] relative">
+          <span className="text-4xl sm:text-5xl font-bold tracking-[0.28em]">M</span>
+          <span className="text-4xl sm:text-5xl font-bold tracking-[0.28em] relative">
             I
             <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-2.5 h-1.5 bg-[#C59B27] rounded-sm transform rotate-12" />
           </span>
-          <span className="text-4xl sm:text-5xl font-bold tracking-[0.25em]">GALIA</span>
+          <span className="text-4xl sm:text-5xl font-bold tracking-[0.28em]">GALIA</span>
         </div>
+        <p className="text-[11px] sm:text-xs font-semibold tracking-[0.3em] uppercase text-[#8C6239]">
+          Boutique Bakery
+        </p>
       </div>
 
-      {/* Main Login Card */}
-      <div className="max-w-md w-full bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-7 sm:p-9 shadow-sm space-y-5">
-        {/* Notificación de Error Prominente y Visible */}
+      {/* Main Login Card con Glassmorphism Cálido */}
+      <div className="relative z-10 max-w-md w-full bg-[#FFFFFF]/90 backdrop-blur-md border border-[#E6DFD5] rounded-3xl p-7 sm:p-9 shadow-[0_10px_35px_-5px_rgba(140,98,57,0.08)] space-y-5">
+        {/* Notificación de Error Prominente */}
         {errorMessage && (
           <div className="flex items-start gap-3 bg-[#FDF0ED] border-2 border-[#E07A5F] text-[#C84B31] p-4 rounded-2xl animate-in fade-in duration-200">
             <XCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#C84B31]" />
@@ -101,7 +129,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
                   setEmail(e.target.value);
                   if (errorMessage) setErrorMessage('');
                 }}
-                className={`w-full text-xs bg-[#F8F6F0] border rounded-xl pl-9 pr-3 py-3 text-[#221F1D] focus:outline-none transition-colors ${
+                className={`w-full text-xs bg-[#F8F6F0]/80 border rounded-xl pl-9 pr-3 py-3 text-[#221F1D] focus:outline-none transition-colors ${
                   errorMessage ? 'border-[#C84B31] focus:border-[#C84B31]' : 'border-[#E6DFD5] focus:border-[#C59B27]'
                 }`}
                 required
@@ -116,19 +144,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
             </label>
             <div className="relative">
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (errorMessage) setErrorMessage('');
                 }}
-                className={`w-full text-xs bg-[#F8F6F0] border rounded-xl pl-9 pr-3 py-3 text-[#221F1D] focus:outline-none transition-colors ${
+                className={`w-full text-xs bg-[#F8F6F0]/80 border rounded-xl pl-9 pr-10 py-3 text-[#221F1D] focus:outline-none transition-colors ${
                   errorMessage ? 'border-[#C84B31] focus:border-[#C84B31]' : 'border-[#E6DFD5] focus:border-[#C59B27]'
                 }`}
                 required
               />
               <Lock className="w-4 h-4 text-[#8C6239] absolute left-3 top-3.5" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3.5 text-[#A39E93] hover:text-[#221F1D] transition-colors p-0.5"
+                title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
+          </div>
+
+          {/* Recordar Correo */}
+          <div className="flex items-center justify-between text-xs pt-1">
+            <label className="flex items-center gap-2 text-[#6E665D] hover:text-[#221F1D] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-[#DDD5C7] text-[#C59B27] focus:ring-0 w-3.5 h-3.5 accent-[#C59B27]"
+              />
+              <span>Recordar mi correo</span>
+            </label>
           </div>
 
           <button
