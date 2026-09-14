@@ -9,8 +9,16 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "MÍGALIA · Gestión de Planeación y Operaciones",
-  description: "Plataforma interna de coordinación de proyectos y apertura de boutique para cofundadores.",
+  title: "MIGALIA",
+  description: "MIGALIA",
+  icons: {
+    icon: [
+      { url: "/icon.png" },
+      { url: "/favicon.png" },
+    ],
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({

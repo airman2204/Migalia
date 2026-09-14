@@ -47,6 +47,7 @@ export default function Home() {
 
   // 1. Cargar datos desde Supabase en la nube
   useEffect(() => {
+    document.title = 'MIGALIA';
     async function loadDataFromSupabase() {
       try {
         // Sesión local del socio
