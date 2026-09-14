@@ -150,22 +150,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
             <button
               type="button"
               onClick={() => {
-                setZohoEmail('socio1@migalia.mx');
+                setZohoEmail('socio1@migaliabakery.com');
                 setZohoPassword('migalia2026');
               }}
               className="bg-[#FFFFFF] border border-[#DDD5C7] hover:border-[#C59B27] px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#221F1D]"
             >
-              socio1@migalia.mx
+              socio1@migaliabakery.com
             </button>
             <button
               type="button"
               onClick={() => {
-                setZohoEmail('socio2@migalia.mx');
+                setZohoEmail('socio2@migaliabakery.com');
                 setZohoPassword('migalia2026');
               }}
               className="bg-[#FFFFFF] border border-[#DDD5C7] hover:border-[#C59B27] px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#221F1D]"
             >
-              socio2@migalia.mx
+              socio2@migaliabakery.com
             </button>
           </div>
         </div>
