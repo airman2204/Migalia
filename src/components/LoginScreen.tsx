@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Partner } from '@/types';
-import { ShieldCheck, ArrowRight, Sparkles, Mail, Lock, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Sparkles, Mail, Lock, AlertCircle } from 'lucide-react';
 
 interface LoginScreenProps {
   partners: Partner[];
@@ -15,42 +15,45 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Ingreso exclusivo con Zoho Mail corporativo
-  const handleZohoLogin = (e: React.FormEvent) => {
+  // Validación real con el servidor de Zoho Mail
+  const handleZohoLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    if (!zohoEmail.trim()) {
-      setErrorMessage('Por favor ingresa tu correo de Zoho Mail corporativo.');
+
+    if (!zohoEmail.trim() || !zohoPassword.trim()) {
+      setErrorMessage('Por favor ingresa tu correo corporativo y contraseña de Zoho.');
       return;
     }
 
     setIsLoading(true);
 
-    // Buscar si el correo coincide con alguno de los socios precargados o nuevo socio
-    const cleanEmail = zohoEmail.trim().toLowerCase();
-    const existingPartner = partners.find(
-      (p) => p.email.toLowerCase() === cleanEmail
-    );
+    try {
+      const res = await fetch('/api/auth/zoho', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: zohoEmail.trim(),
+          password: zohoPassword,
+        }),
+      });
 
-    setTimeout(() => {
-      if (existingPartner) {
-        onLogin(existingPartner);
-      } else {
-        // Asignar nombre a partir del prefijo de correo (ej. mario@migalia.mx -> Mario)
-        const namePart = cleanEmail.split('@')[0];
-        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        const newPartner: Partner = {
-          id: 'partner-' + Date.now(),
-          name: formattedName,
-          shortName: formattedName,
-          email: cleanEmail,
-          role: 'Socio Cofundador',
-          avatar: formattedName.charAt(0).toUpperCase(),
-        };
-        onLogin(newPartner);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMessage(data.error || 'Credenciales incorrectas de Zoho Mail.');
+        setIsLoading(false);
+        return;
       }
+
+      // Si Zoho aprobó las credenciales, loguear al usuario
+      onLogin(data.user);
+    } catch (err) {
+      setErrorMessage('Error de red al conectar con el servicio de autenticación.');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -82,28 +85,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
             Acceso Socios MÍGALIA
           </h1>
           <p className="text-xs text-[#6E665D] leading-relaxed">
-            Ingresa con tu cuenta de correo corporativa en <span className="font-semibold text-[#221F1D]">Zoho Mail</span> para acceder a tu espacio de trabajo.
+            Ingresa con tus credenciales oficiales de <span className="font-semibold text-[#221F1D]">Zoho Mail</span> (@migaliabakery.com) para autenticarte.
           </p>
         </div>
 
-        {/* Formulario exclusivo Zoho Mail */}
+        {/* Formulario con verificación real */}
         <form onSubmit={handleZohoLogin} className="space-y-4 pt-1">
           {errorMessage && (
-            <p className="text-xs text-[#C84B31] bg-[#FDF0ED] p-2.5 rounded-xl border border-[#F5C6BC]">
-              {errorMessage}
-            </p>
+            <div className="flex items-start gap-2 text-xs text-[#C84B31] bg-[#FDF0ED] p-3 rounded-xl border border-[#F5C6BC]">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span className="leading-snug">{errorMessage}</span>
+            </div>
           )}
 
           <div>
             <label className="block text-xs font-semibold text-[#221F1D] mb-1.5">
-              Correo Corporativo (Zoho Mail)
+              Correo Zoho Mail
             </label>
             <div className="relative">
               <input
                 type="email"
                 value={zohoEmail}
                 onChange={(e) => setZohoEmail(e.target.value)}
-                placeholder="socio@migalia.mx"
+                placeholder="tu_nombre@migaliabakery.com"
                 className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-9 pr-3 py-3 text-[#221F1D] placeholder-[#A39E93] focus:outline-none focus:border-[#C59B27]"
                 required
               />
@@ -114,9 +118,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-[#221F1D]">
-                Contraseña
+                Contraseña de Zoho
               </label>
-              <span className="text-[10px] text-[#A39E93]">Zoho Workspace</span>
+              <span className="text-[10px] text-[#A39E93]">Verificación en servidor</span>
             </div>
             <div className="relative">
               <input
@@ -125,6 +129,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
                 onChange={(e) => setZohoPassword(e.target.value)}
                 placeholder="••••••••••••"
                 className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-9 pr-3 py-3 text-[#221F1D] placeholder-[#A39E93] focus:outline-none focus:border-[#C59B27]"
+                required
               />
               <Lock className="w-4 h-4 text-[#8C6239] absolute left-3 top-3.5" />
             </div>
@@ -133,47 +138,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all active:scale-98"
+            className="w-full flex items-center justify-center gap-2 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all active:scale-98 disabled:opacity-60"
           >
-            <span>{isLoading ? 'Autenticando en Zoho...' : 'Iniciar Sesión con Zoho Mail'}</span>
+            <span>{isLoading ? 'Verificando con Zoho Mail...' : 'Verificar e Ingresar'}</span>
             <ArrowRight className="w-4 h-4 text-[#C59B27]" />
           </button>
         </form>
 
-        {/* Cuentas de Acceso Rápido sugeridas */}
-        <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3.5 rounded-2xl text-[11px] text-[#6E665D] space-y-1.5">
-          <p className="font-semibold text-[#221F1D] flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-[#4A6B53]" />
-            Cuentas de Co-Fundadores configuradas:
+        {/* Nota técnica sobre contraseñas de aplicación de Zoho */}
+        <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3 rounded-xl text-[11px] text-[#6E665D] space-y-1">
+          <p className="font-semibold text-[#221F1D]">Seguridad y Autenticación:</p>
+          <p className="text-[10px] leading-relaxed">
+            Las credenciales son verificadas directamente con los servidores seguros de Zoho Mail (SMTP SSL). Si tienes activada la verificación en dos pasos (2FA) en Zoho, utiliza tu Contraseña de Aplicación.
           </p>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setZohoEmail('socio1@migaliabakery.com');
-                setZohoPassword('migalia2026');
-              }}
-              className="bg-[#FFFFFF] border border-[#DDD5C7] hover:border-[#C59B27] px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#221F1D]"
-            >
-              socio1@migaliabakery.com
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setZohoEmail('socio2@migaliabakery.com');
-                setZohoPassword('migalia2026');
-              }}
-              className="bg-[#FFFFFF] border border-[#DDD5C7] hover:border-[#C59B27] px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#221F1D]"
-            >
-              socio2@migaliabakery.com
-            </button>
-          </div>
         </div>
 
-        {/* Info de Seguridad */}
+        {/* Footer info */}
         <div className="pt-2 text-center text-[10px] text-[#A39E93] space-y-1 border-t border-[#F2EFE9]">
-          <p>Autenticación empresarial con Zoho Mail & Dominio Migalia</p>
-          <p>Coste operativo de correo: $0 (Zoho Forever Free Tier)</p>
+          <p>Autenticación empresarial en tiempo real · Servidores Zoho</p>
         </div>
       </div>
 
