@@ -77,24 +77,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Botón de Configuración de Socios y Presupuesto */}
-      <div className="mt-8 space-y-3">
+      {/* Botón de Configuración hasta abajo */}
+      <div className="mt-8">
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#8C6239] hover:text-[#221F1D] hover:bg-[#EBE7DF] border border-[#DDD5C7] transition-all"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-[#8C6239] hover:text-[#221F1D] hover:bg-[#EBE7DF] border border-[#DDD5C7] transition-all shadow-2xs"
           >
-            <Settings className="w-3.5 h-3.5 text-[#C59B27]" />
-            <span>Configurar Socios & Fondos</span>
+            <Settings className="w-4 h-4 text-[#C59B27]" />
+            <span>Configuración</span>
           </button>
         )}
-
-        <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3 rounded-2xl text-[11px] text-[#6E665D] space-y-1">
-          <p className="font-semibold text-[#221F1D]">Espacio de Cofundadores</p>
-          <p className="text-[10px] leading-relaxed">
-            Coordinación activa para la apertura en tiempo y forma.
-          </p>
-        </div>
       </div>
     </aside>
   );
