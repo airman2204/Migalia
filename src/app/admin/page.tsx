@@ -55,7 +55,8 @@ export default function Home() {
         if (savedUser) {
           const parsed = JSON.parse(savedUser);
           setCurrentPartner(parsed);
-          setSelectedPartnerFilter(parsed.id);
+          // Por defecto mostrar Vista Global ('all') para ver el panorama completo de las 15 tareas
+          setSelectedPartnerFilter('all');
         }
 
         // Cargar perfiles de socios

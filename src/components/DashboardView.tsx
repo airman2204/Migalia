@@ -283,6 +283,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Bloque de Actividades de Apertura (Acceso Directo desde Dashboard) */}
+      <div className="bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-[#F2EFE9] pb-3">
+          <div>
+            <h2 className="text-sm font-bold text-[#221F1D]">Actividades de Apertura ({tasks.length})</h2>
+            <p className="text-[11px] text-[#6E665D]">Plan maestro de ejecución física, legal y operativa</p>
+          </div>
+          <button
+            onClick={() => onGoToTab('tasks')}
+            className="flex items-center gap-1 text-xs font-semibold text-[#8C6239] hover:text-[#C59B27]"
+          >
+            <span>Ver Lista Completa</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {tasks.slice(0, 6).map((task) => (
+            <div
+              key={task.id}
+              onClick={() => onSelectTask(task)}
+              className="bg-[#F8F6F0] hover:bg-[#FAF8F5] border border-[#E6DFD5] hover:border-[#C59B27] p-3.5 rounded-2xl cursor-pointer shadow-2xs transition-all space-y-1.5"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C6239] bg-[#FFFFFF] px-2 py-0.5 rounded-md border border-[#E6DFD5]">
+                  {task.category}
+                </span>
+                <span className="text-[10px] text-[#A39E93]">{task.dueDate}</span>
+              </div>
+              <p className="text-xs font-bold text-[#221F1D] line-clamp-2 leading-snug">{task.title}</p>
+              <div className="flex items-center justify-between text-[10px] text-[#6E665D] pt-1">
+                <span>
+                  {task.estimatedCost ? `$${task.estimatedCost.toLocaleString('es-MX')}` : 'Sin costo'}
+                </span>
+                <span className="font-semibold text-[#8C6239]">
+                  {task.status === 'todo' ? 'Por Hacer' : task.status === 'in_progress' ? 'En Proceso' : task.status === 'done' ? 'Terminado' : 'Ideas'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
