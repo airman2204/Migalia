@@ -180,7 +180,8 @@ export default function Home() {
   // Manejador de Login
   const handleLogin = (partner: Partner) => {
     setCurrentPartner(partner);
-    setSelectedPartnerFilter(partner.id);
+    // Iniciar siempre en Vista Global para ver las 15 actividades del proyecto
+    setSelectedPartnerFilter('all');
     localStorage.setItem('migalia_auth_partner', JSON.stringify(partner));
   };
 

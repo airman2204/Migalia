@@ -70,15 +70,45 @@ export async function POST(request: NextRequest) {
     const namePart = cleanEmail.split('@')[0];
     const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
 
+    // Intentar buscar el perfil existente en la base de datos por email
+    let matchedId = 'zoho-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_');
+    let partnerName = formattedName;
+    let partnerShortName = formattedName;
+    let partnerRole = 'Socio Cofundador Verificado';
+    let partnerAvatar = formattedName.charAt(0).toUpperCase();
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpdquyxisqdikatpatxm.supabase.co';
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwZHF1eXhpc3FkaWthdHBhdHhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0MDY0MzMsImV4cCI6MjEwNDk4MjQzM30.DCcv8MaD3Tzvd-l2-qAzZWm4UvSccqNlyoxQa4Bu3YQ';
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const { data: dbProfiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', cleanEmail);
+
+      if (dbProfiles && dbProfiles.length > 0) {
+        const p = dbProfiles[0];
+        matchedId = p.id;
+        partnerName = p.name || formattedName;
+        partnerShortName = p.short_name || p.name || formattedName;
+        partnerRole = p.role || partnerRole;
+        partnerAvatar = p.avatar || partnerAvatar;
+      }
+    } catch (dbErr) {
+      console.error('Error al vincular perfil de Supabase:', dbErr);
+    }
+
     return NextResponse.json({
       success: true,
       user: {
-        id: 'zoho-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
-        name: formattedName,
-        shortName: formattedName,
+        id: matchedId,
+        name: partnerName,
+        shortName: partnerShortName,
         email: cleanEmail,
-        role: 'Socio Cofundador Verificado',
-        avatar: formattedName.charAt(0).toUpperCase(),
+        role: partnerRole,
+        avatar: partnerAvatar,
       },
     });
   } catch (error: any) {
