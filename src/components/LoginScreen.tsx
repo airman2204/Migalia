@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Partner } from '@/types';
-import { ArrowRight, Mail, Lock, AlertCircle } from 'lucide-react';
+import { ArrowRight, Mail, Lock, AlertCircle, XCircle } from 'lucide-react';
 
 interface LoginScreenProps {
   partners: Partner[];
@@ -20,8 +20,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
     e.preventDefault();
     setErrorMessage('');
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage('Por favor ingresa tu correo y contraseña.');
+    if (!email.trim()) {
+      setErrorMessage('Por favor escribe tu correo.');
+      return;
+    }
+
+    if (!password.trim()) {
+      setErrorMessage('Por favor escribe tu contraseña.');
       return;
     }
 
@@ -42,14 +47,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMessage(data.error || 'Credenciales incorrectas.');
+        setErrorMessage(data.error || 'Correo o contraseña incorrectos. Por favor verifica tus credenciales.');
         setIsLoading(false);
         return;
       }
 
       onLogin(data.user);
     } catch (err) {
-      setErrorMessage('Error de red al conectar con el servidor.');
+      setErrorMessage('No fue posible conectar con el servidor de autenticación. Revisa tu conexión.');
     } finally {
       setIsLoading(false);
     }
@@ -70,22 +75,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
       </div>
 
       {/* Main Login Card */}
-      <div className="max-w-md w-full bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-7 sm:p-9 shadow-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold text-[#221F1D] tracking-tight">
-            Portal de administración Migalia
-          </h1>
-        </div>
+      <div className="max-w-md w-full bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-7 sm:p-9 shadow-sm space-y-5">
+        {/* Notificación de Error Prominente y Visible */}
+        {errorMessage && (
+          <div className="flex items-start gap-3 bg-[#FDF0ED] border-2 border-[#E07A5F] text-[#C84B31] p-4 rounded-2xl animate-in fade-in duration-200">
+            <XCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#C84B31]" />
+            <div className="space-y-0.5">
+              <p className="text-xs font-bold">Error de acceso</p>
+              <p className="text-xs font-medium leading-relaxed">{errorMessage}</p>
+            </div>
+          </div>
+        )}
 
         {/* Formulario */}
-        <form onSubmit={handleLogin} className="space-y-4 pt-1">
-          {errorMessage && (
-            <div className="flex items-start gap-2 text-xs text-[#C84B31] bg-[#FDF0ED] p-3 rounded-xl border border-[#F5C6BC]">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span className="leading-snug">{errorMessage}</span>
-            </div>
-          )}
-
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#221F1D] mb-1.5">
               Correo
@@ -94,9 +97,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder=""
-                className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-9 pr-3 py-3 text-[#221F1D] placeholder-[#A39E93] focus:outline-none focus:border-[#C59B27]"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                className={`w-full text-xs bg-[#F8F6F0] border rounded-xl pl-9 pr-3 py-3 text-[#221F1D] focus:outline-none transition-colors ${
+                  errorMessage ? 'border-[#C84B31] focus:border-[#C84B31]' : 'border-[#E6DFD5] focus:border-[#C59B27]'
+                }`}
                 required
               />
               <Mail className="w-4 h-4 text-[#8C6239] absolute left-3 top-3.5" />
@@ -111,9 +118,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder=""
-                className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-9 pr-3 py-3 text-[#221F1D] placeholder-[#A39E93] focus:outline-none focus:border-[#C59B27]"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                className={`w-full text-xs bg-[#F8F6F0] border rounded-xl pl-9 pr-3 py-3 text-[#221F1D] focus:outline-none transition-colors ${
+                  errorMessage ? 'border-[#C84B31] focus:border-[#C84B31]' : 'border-[#E6DFD5] focus:border-[#C59B27]'
+                }`}
                 required
               />
               <Lock className="w-4 h-4 text-[#8C6239] absolute left-3 top-3.5" />
@@ -123,9 +134,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all active:scale-98 disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all active:scale-98 disabled:opacity-60 mt-2"
           >
-            <span>{isLoading ? 'Verificando...' : 'Verificar e Ingresar'}</span>
+            <span>{isLoading ? 'Verificando...' : 'Ingresar'}</span>
             <ArrowRight className="w-4 h-4 text-[#C59B27]" />
           </button>
         </form>
