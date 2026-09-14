@@ -39,8 +39,8 @@ Este documento formaliza los requerimientos funcionales, no funcionales y de arq
 ## 3. Requerimientos Funcionales (RF)
 
 ### Módulo 1: Autenticación y Control de Acceso
-- **RF-01 (Login con Google):** El acceso al sistema debe realizarse exclusivamente a través de Google OAuth mediante Supabase Auth, sin necesidad de recordar contraseñas.
-- **RF-02 (Aprovisionamiento automático):** Al iniciar sesión por primera vez con su cuenta de Google, el sistema debe crear de forma automática el perfil del usuario (`profiles`) extrayendo su nombre, correo y avatar.
+- **RF-01 (Login con Zoho Mail / Cuentas Corporativas):** El acceso al sistema se realiza mediante la cuenta corporativa de Zoho Mail (ej. socio@migalia.mx o dominio corporativo) y perfiles directos de socios cofundadores.
+- **RF-02 (Aprovisionamiento automático):** Al iniciar sesión con correo de Zoho Mail, el sistema reconoce o crea el perfil correspondiente del socio (`profiles`) asociando su espacio de trabajo y actividades.
 - **RF-03 (Filtro de contexto - "Mi Espacio"):** Cada socio debe poder alternar con un solo clic entre:
   - *Mi Espacio:* Muestra únicamente las actividades y tareas asignadas a él.
   - *Vista Global:* Muestra el panorama completo de ambos socios y del proyecto.

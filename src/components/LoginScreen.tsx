@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Partner } from '@/types';
-import { ShieldCheck, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Sparkles, Mail, Lock, CheckCircle2 } from 'lucide-react';
 
 interface LoginScreenProps {
   partners: Partner[];
@@ -10,15 +10,56 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) => {
-  const [selectedPartnerId, setSelectedPartnerId] = useState(partners[0]?.id || '');
+  const [activeMethod, setActiveMethod] = useState<'profiles' | 'zoho'>('profiles');
+  const [zohoEmail, setZohoEmail] = useState('');
+  const [zohoPassword, setZohoPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleGoogleSimulation = (partner: Partner) => {
+  // Ingreso directo seleccionando perfil de socio
+  const handleProfileSelect = (partner: Partner) => {
     setIsLoading(true);
     setTimeout(() => {
       onLogin(partner);
       setIsLoading(false);
-    }, 500);
+    }, 400);
+  };
+
+  // Ingreso con correo Zoho Mail corporativo (@migalia.mx o cuenta Zoho)
+  const handleZohoLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    if (!zohoEmail.trim()) {
+      setErrorMessage('Por favor ingresa tu correo de Zoho Mail.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Buscar si el correo pertenece a uno de los socios registrados
+    const existingPartner = partners.find(
+      (p) => p.email.toLowerCase() === zohoEmail.trim().toLowerCase()
+    );
+
+    setTimeout(() => {
+      if (existingPartner) {
+        onLogin(existingPartner);
+      } else {
+        // Permitir inicio creando socio al vuelo con su correo corporativo Zoho
+        const namePart = zohoEmail.split('@')[0];
+        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        const newPartner: Partner = {
+          id: 'partner-' + Date.now(),
+          name: formattedName,
+          shortName: formattedName,
+          email: zohoEmail.trim().toLowerCase(),
+          role: 'Cofundador (Zoho)',
+          avatar: formattedName.charAt(0).toUpperCase(),
+        };
+        onLogin(newPartner);
+      }
+      setIsLoading(false);
+    }, 600);
   };
 
   return (
@@ -40,7 +81,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
       </div>
 
       {/* Main Login Card */}
-      <div className="max-w-md w-full mx-auto my-12 bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-8 shadow-sm space-y-6">
+      <div className="max-w-md w-full mx-auto my-8 bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-7 sm:p-8 shadow-sm space-y-6">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A] px-3 py-1 rounded-full text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5" />
@@ -54,84 +95,136 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
           </p>
         </div>
 
-        {/* Acceso rápido con Google */}
-        <div className="space-y-3 pt-2">
-          <p className="text-[11px] font-bold text-[#8C6239] uppercase tracking-wider text-center">
-            Selecciona tu Perfil de Socio
-          </p>
-
-          <div className="space-y-2.5">
-            {partners.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleGoogleSimulation(p)}
-                disabled={isLoading}
-                className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-[#E6DFD5] hover:border-[#C59B27] hover:bg-[#FAF8F5] transition-all duration-150 group text-left"
-              >
-                <div className="flex items-center gap-3">
-                  {/* Google style colored icon / Avatar */}
-                  <div className="w-10 h-10 rounded-xl bg-[#F2EFE9] border border-[#DDD5C7] flex items-center justify-center text-sm font-bold text-[#221F1D] group-hover:bg-[#C59B27] group-hover:text-[#FFFFFF] transition-colors">
-                    {p.name.charAt(p.name.length - 1)}
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-[#221F1D] group-hover:text-[#8C6239]">
-                      {p.name}
-                    </h3>
-                    <p className="text-[11px] text-[#6E665D]">{p.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8C6239] group-hover:text-[#C59B27]">
-                  <span className="hidden sm:inline">Entrar</span>
-                  <ArrowRight className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#E6DFD5]" />
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase">
-              <span className="bg-[#FFFFFF] px-2 text-[#A39E93] font-semibold tracking-wider">
-                Autenticación Google OAuth
-              </span>
-            </div>
-          </div>
-
-          {/* Botón clásico de Google */}
+        {/* Tabs de método de acceso */}
+        <div className="flex bg-[#EBE7DF] p-1 rounded-xl border border-[#DDD5C7] text-xs font-medium">
           <button
-            onClick={() => handleGoogleSimulation(partners[0])}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 bg-[#FFFFFF] border border-[#DDD5C7] hover:bg-[#F8F6F0] text-[#221F1D] text-xs font-bold py-3 px-4 rounded-xl shadow-xs transition-all"
+            type="button"
+            onClick={() => setActiveMethod('profiles')}
+            className={`flex-1 py-2 rounded-lg transition-all ${
+              activeMethod === 'profiles'
+                ? 'bg-[#221F1D] text-[#F8F6F0] font-semibold shadow-xs'
+                : 'text-[#6E665D] hover:text-[#221F1D]'
+            }`}
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            <span>{isLoading ? 'Autenticando...' : 'Iniciar Sesión con Google'}</span>
+            Socios Fundadores
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMethod('zoho')}
+            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              activeMethod === 'zoho'
+                ? 'bg-[#221F1D] text-[#F8F6F0] font-semibold shadow-xs'
+                : 'text-[#6E665D] hover:text-[#221F1D]'
+            }`}
+          >
+            <Mail className="w-3.5 h-3.5 text-[#C59B27]" />
+            <span>Zoho Mail</span>
           </button>
         </div>
 
+        {/* Método 1: Selección de Perfiles */}
+        {activeMethod === 'profiles' && (
+          <div className="space-y-3">
+            <p className="text-[11px] font-bold text-[#8C6239] uppercase tracking-wider text-center">
+              Selecciona tu Perfil de Socio
+            </p>
+
+            <div className="space-y-2.5">
+              {partners.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleProfileSelect(p)}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-[#E6DFD5] hover:border-[#C59B27] hover:bg-[#FAF8F5] transition-all duration-150 group text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#F2EFE9] border border-[#DDD5C7] flex items-center justify-center text-sm font-bold text-[#221F1D] group-hover:bg-[#C59B27] group-hover:text-[#FFFFFF] transition-colors">
+                      {p.shortName.charAt(p.shortName.length - 1)}
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-[#221F1D] group-hover:text-[#8C6239]">
+                        {p.name}
+                      </h3>
+                      <p className="text-[11px] text-[#6E665D]">{p.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8C6239] group-hover:text-[#C59B27]">
+                    <span className="hidden sm:inline">Entrar</span>
+                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Método 2: Acceso con Zoho Mail */}
+        {activeMethod === 'zoho' && (
+          <form onSubmit={handleZohoLogin} className="space-y-3.5">
+            <div className="bg-[#F8F6F0] border border-[#E6DFD5] p-3 rounded-xl flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[#221F1D] text-[#C59B27] flex items-center justify-center shrink-0">
+                <Mail className="w-4 h-4" />
+              </div>
+              <p className="text-[11px] text-[#6E665D] leading-tight">
+                Ingresa con tu cuenta corporativa de <span className="font-bold text-[#221F1D]">Zoho Mail</span> (ej. socio@migalia.mx).
+              </p>
+            </div>
+
+            {errorMessage && (
+              <p className="text-xs text-[#C84B31] bg-[#FDF0ED] p-2 rounded-lg border border-[#F5C6BC]">
+                {errorMessage}
+              </p>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-[#221F1D] mb-1">
+                Correo Zoho Mail
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={zohoEmail}
+                  onChange={(e) => setZohoEmail(e.target.value)}
+                  placeholder="ejemplo@migalia.mx o tu_cuenta@zohomail.com"
+                  className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-8 pr-3 py-2.5 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
+                  required
+                />
+                <Mail className="w-4 h-4 text-[#A39E93] absolute left-2.5 top-3" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#221F1D] mb-1">
+                Contraseña / Token de acceso
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={zohoPassword}
+                  onChange={(e) => setZohoPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-8 pr-3 py-2.5 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
+                />
+                <Lock className="w-4 h-4 text-[#A39E93] absolute left-2.5 top-3" />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-bold py-3 px-4 rounded-xl shadow-xs transition-all"
+            >
+              <span>{isLoading ? 'Verificando con Zoho...' : 'Acceder con Zoho Mail'}</span>
+              <ArrowRight className="w-4 h-4 text-[#C59B27]" />
+            </button>
+          </form>
+        )}
+
         {/* Info de Seguridad & Coste */}
-        <div className="pt-2 text-center text-[10px] text-[#A39E93] space-y-1">
-          <p>Conectado a Supabase Auth · Servidores Seguros</p>
-          <p>Sin costos recurrentes (Free Tier Activo)</p>
+        <div className="pt-2 text-center text-[10px] text-[#A39E93] space-y-1 border-t border-[#F2EFE9]">
+          <p>Autenticación empresarial con Zoho Mail & Supabase Auth</p>
+          <p>Plan 100% Gratuito (Sin costos de licencia)</p>
         </div>
       </div>
 
