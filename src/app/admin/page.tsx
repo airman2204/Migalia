@@ -11,6 +11,7 @@ import { MilestonesView } from '@/components/MilestonesView';
 import { TaskModal } from '@/components/TaskModal';
 import { LoginScreen } from '@/components/LoginScreen';
 import { SettingsModal } from '@/components/SettingsModal';
+import { supabase } from '@/lib/supabase';
 
 import {
   DEFAULT_PARTNERS,
@@ -24,7 +25,7 @@ export default function Home() {
   // Autenticación de Socio Activo
   const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
 
-  // Estado local con persistencia en localStorage
+  // Estado sincronizado con Supabase
   const [partners, setPartners] = useState<Partner[]>(DEFAULT_PARTNERS);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
@@ -42,40 +43,113 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [selectedPartnerFilter, setSelectedPartnerFilter] = useState<'all' | string>('all');
 
-  // Cargar sesión y datos guardados en el navegador
+  // 1. Cargar datos desde Supabase en la nube
   useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('migalia_auth_partner');
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        setCurrentPartner(parsed);
-        setSelectedPartnerFilter(parsed.id);
+    async function loadDataFromSupabase() {
+      try {
+        // Sesión local del socio
+        const savedUser = localStorage.getItem('migalia_auth_partner');
+        if (savedUser) {
+          const parsed = JSON.parse(savedUser);
+          setCurrentPartner(parsed);
+          setSelectedPartnerFilter(parsed.id);
+        }
+
+        // Cargar perfiles de socios
+        const { data: dbPartners } = await supabase.from('profiles').select('*');
+        if (dbPartners && dbPartners.length > 0) {
+          setPartners(
+            dbPartners.map((p) => ({
+              id: p.id,
+              name: p.name,
+              shortName: p.short_name,
+              email: p.email,
+              role: p.role,
+              avatar: p.avatar || 'M',
+            }))
+          );
+        } else {
+          // Inicializar en DB con los socios por defecto
+          await supabase.from('profiles').upsert(
+            DEFAULT_PARTNERS.map((p) => ({
+              id: p.id,
+              name: p.name,
+              short_name: p.shortName,
+              email: p.email,
+              role: p.role,
+              avatar: p.avatar,
+            }))
+          );
+          setPartners(DEFAULT_PARTNERS);
+        }
+
+        // Cargar Presupuesto
+        const { data: dbSettings } = await supabase.from('project_settings').select('*').eq('id', 'main').single();
+        if (dbSettings) {
+          setBudget(Number(dbSettings.budget));
+        }
+
+        // Cargar Tareas
+        const { data: dbTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+        if (dbTasks) {
+          setTasks(
+            dbTasks.map((t) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description || '',
+              status: t.status as TaskStatus,
+              priority: t.priority as any,
+              assignedTo: t.assigned_to || '',
+              category: t.category as any,
+              dueDate: t.due_date || '',
+              subtasks: t.subtasks || [],
+              createdAt: t.created_at,
+            }))
+          );
+        }
+
+        // Cargar Bitácora
+        const { data: dbLogbook } = await supabase.from('logbook').select('*').order('date', { ascending: false });
+        if (dbLogbook) {
+          setLogbook(
+            dbLogbook.map((l) => ({
+              id: l.id,
+              title: l.title,
+              content: l.content,
+              category: l.category as any,
+              authorId: l.author_id || '',
+              authorName: l.author_name,
+              date: l.date,
+            }))
+          );
+        }
+
+        // Cargar Hitos
+        const { data: dbMilestones } = await supabase.from('milestones').select('*').order('deadline', { ascending: true });
+        if (dbMilestones && dbMilestones.length > 0) {
+          setMilestones(
+            dbMilestones.map((m) => ({
+              id: m.id,
+              title: m.title,
+              phase: m.phase,
+              deadline: m.deadline,
+              status: m.status as any,
+              progress: m.progress,
+            }))
+          );
+        } else {
+          // Inicializar hitos si está vacío
+          await supabase.from('milestones').upsert(INITIAL_MILESTONES);
+          setMilestones(INITIAL_MILESTONES);
+        }
+      } catch (err) {
+        console.error('Error al conectar con Supabase:', err);
+      } finally {
+        setIsLoaded(true);
       }
-
-      const savedPartners = localStorage.getItem('migalia_partners');
-      if (savedPartners) setPartners(JSON.parse(savedPartners));
-      else setPartners(DEFAULT_PARTNERS);
-
-      const savedBudget = localStorage.getItem('migalia_budget');
-      if (savedBudget) setBudget(Number(savedBudget));
-
-      const savedTasks = localStorage.getItem('migalia_tasks');
-      const savedLogbook = localStorage.getItem('migalia_logbook');
-      const savedMilestones = localStorage.getItem('migalia_milestones');
-
-      if (savedTasks) setTasks(JSON.parse(savedTasks));
-      else setTasks(EMPTY_TASKS);
-
-      if (savedLogbook) setLogbook(JSON.parse(savedLogbook));
-      else setLogbook(EMPTY_LOGBOOK);
-
-      if (savedMilestones) setMilestones(JSON.parse(savedMilestones));
-      else setMilestones(INITIAL_MILESTONES);
-    } catch (e) {
-      console.error('Error al cargar datos locales:', e);
-    } finally {
-      setIsLoaded(true);
     }
+
+    loadDataFromSupabase();
   }, []);
 
   // Manejador de Login
@@ -91,91 +165,132 @@ export default function Home() {
     localStorage.removeItem('migalia_auth_partner');
   };
 
-  // Guardar automáticamente en localStorage ante cualquier cambio
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem('migalia_partners', JSON.stringify(partners));
-  }, [partners, isLoaded]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem('migalia_budget', budget.toString());
-  }, [budget, isLoaded]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem('migalia_tasks', JSON.stringify(tasks));
-  }, [tasks, isLoaded]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem('migalia_logbook', JSON.stringify(logbook));
-  }, [logbook, isLoaded]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem('migalia_milestones', JSON.stringify(milestones));
-  }, [milestones, isLoaded]);
-
   // Filtrado por socio ("Mi Espacio" vs "Global")
   const displayedTasks = tasks.filter((task) => {
     if (selectedPartnerFilter === 'all') return true;
     return task.assignedTo === selectedPartnerFilter;
   });
 
-  // Manejo de Estados de Tareas
-  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
+  // 2. Operaciones con Tareas en Supabase
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
     );
+    await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
   };
 
-  const handleSaveTask = (taskData: Task) => {
+  const handleSaveTask = async (taskData: Task) => {
     const exists = tasks.some((t) => t.id === taskData.id);
     if (exists) {
       setTasks((prev) => prev.map((t) => (t.id === taskData.id ? taskData : t)));
     } else {
       setTasks((prev) => [taskData, ...prev]);
     }
+
+    await supabase.from('tasks').upsert({
+      id: taskData.id,
+      title: taskData.title,
+      description: taskData.description,
+      status: taskData.status,
+      priority: taskData.priority,
+      assigned_to: taskData.assignedTo || null,
+      category: taskData.category,
+      due_date: taskData.dueDate || null,
+      subtasks: taskData.subtasks,
+    });
   };
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = async (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    await supabase.from('tasks').delete().eq('id', taskId);
   };
 
-  // Manejo de Bitácora
-  const handleAddLogbookEntry = (entry: Omit<LogbookEntry, 'id'>) => {
+  // 3. Operaciones de Bitácora en Supabase
+  const handleAddLogbookEntry = async (entry: Omit<LogbookEntry, 'id'>) => {
+    const newId = 'log-' + Date.now();
     const newEntry: LogbookEntry = {
       ...entry,
-      id: 'log-' + Date.now(),
+      id: newId,
     };
     setLogbook((prev) => [newEntry, ...prev]);
+
+    await supabase.from('logbook').insert({
+      id: newId,
+      title: entry.title,
+      content: entry.content,
+      category: entry.category,
+      author_id: entry.authorId || null,
+      author_name: entry.authorName,
+      date: entry.date,
+    });
   };
 
-  // Manejo de Hitos (Milestones)
-  const handleAddMilestone = (milestone: Omit<Milestone, 'id'>) => {
+  // 4. Operaciones de Hitos en Supabase
+  const handleAddMilestone = async (milestone: Omit<Milestone, 'id'>) => {
+    const newId = 'ms-' + Date.now();
     const newMilestone: Milestone = {
       ...milestone,
-      id: 'ms-' + Date.now(),
+      id: newId,
     };
     setMilestones((prev) => [...prev, newMilestone]);
+
+    await supabase.from('milestones').insert({
+      id: newId,
+      title: milestone.title,
+      phase: milestone.phase,
+      deadline: milestone.deadline,
+      status: milestone.status,
+      progress: milestone.progress,
+    });
   };
 
-  const handleUpdateMilestone = (updated: Milestone) => {
+  const handleUpdateMilestone = async (updated: Milestone) => {
     setMilestones((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+
+    await supabase.from('milestones').update({
+      title: updated.title,
+      phase: updated.phase,
+      deadline: updated.deadline,
+      status: updated.status,
+      progress: updated.progress,
+    }).eq('id', updated.id);
   };
 
-  const handleDeleteMilestone = (id: string) => {
+  const handleDeleteMilestone = async (id: string) => {
     setMilestones((prev) => prev.filter((m) => m.id !== id));
+    await supabase.from('milestones').delete().eq('id', id);
   };
 
-  // Limpiar todo para empezar desde cero si se desea
-  const handleResetToZero = () => {
-    if (confirm('¿Deseas vaciar todas las tareas y bitácora para empezar un proyecto 100% desde cero?')) {
+  // 5. Configuración de Socios y Presupuesto en Supabase
+  const handleSavePartners = async (newPartners: Partner[]) => {
+    setPartners(newPartners);
+    await supabase.from('profiles').upsert(
+      newPartners.map((p) => ({
+        id: p.id,
+        name: p.name,
+        short_name: p.shortName,
+        email: p.email,
+        role: p.role,
+        avatar: p.avatar,
+      }))
+    );
+  };
+
+  const handleSaveBudget = async (newBudget: number) => {
+    setBudget(newBudget);
+    await supabase.from('project_settings').upsert({
+      id: 'main',
+      budget: newBudget,
+    });
+  };
+
+  // Vaciar y empezar desde cero en Supabase
+  const handleResetToZero = async () => {
+    if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
       setTasks([]);
       setLogbook([]);
-      localStorage.removeItem('migalia_tasks');
-      localStorage.removeItem('migalia_logbook');
+      await supabase.from('tasks').delete().neq('id', '');
+      await supabase.from('logbook').delete().neq('id', '');
     }
   };
 
@@ -186,7 +301,6 @@ export default function Home() {
     milestones: milestones.length,
   };
 
-  // Si no está autenticado, renderiza la pantalla de login
   if (isLoaded && !currentPartner) {
     return <LoginScreen partners={partners} onLogin={handleLogin} />;
   }
@@ -340,14 +454,14 @@ export default function Home() {
         onDeleteTask={handleDeleteTask}
       />
 
-      {/* Modal de Configuración de Socios y Presupuesto */}
+      {/* Modal de Configuración */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         partners={partners}
-        onSavePartners={setPartners}
+        onSavePartners={handleSavePartners}
         budget={budget}
-        onSaveBudget={setBudget}
+        onSaveBudget={handleSaveBudget}
       />
     </div>
   );
