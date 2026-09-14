@@ -1,69 +1,183 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState } from 'react';
+import { Navbar } from '@/components/Navbar';
+import { Sidebar, ActiveTab } from '@/components/Sidebar';
+import { DashboardView } from '@/components/DashboardView';
+import { KanbanBoard } from '@/components/KanbanBoard';
+import { TasksListView } from '@/components/TasksListView';
+import { LogbookView } from '@/components/LogbookView';
+import { MilestonesView } from '@/components/MilestonesView';
+import { TaskModal } from '@/components/TaskModal';
+
+import {
+  INITIAL_PARTNERS,
+  INITIAL_TASKS,
+  INITIAL_LOGBOOK,
+  INITIAL_MILESTONES,
+} from '@/lib/initialData';
+import { Task, LogbookEntry, TaskStatus } from '@/types';
 
 export default function Home() {
+  const [partners] = useState(INITIAL_PARTNERS);
+  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [logbook, setLogbook] = useState<LogbookEntry[]>(INITIAL_LOGBOOK);
+  const [milestones] = useState(INITIAL_MILESTONES);
+
+  // Navegación y Filtros
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [selectedPartnerFilter, setSelectedPartnerFilter] = useState<'all' | string>('all');
+
+  // Modal de Tarea
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Filtrado por socio ("Mi Espacio" vs "Global")
+  const displayedTasks = tasks.filter((task) => {
+    if (selectedPartnerFilter === 'all') return true;
+    return task.assignedTo === selectedPartnerFilter;
+  });
+
+  // Manejo de Estados de Tareas
+  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    setTasks(
+      tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+    );
+  };
+
+  const handleSaveTask = (taskData: Task) => {
+    const exists = tasks.some((t) => t.id === taskData.id);
+    if (exists) {
+      setTasks(tasks.map((t) => (t.id === taskData.id ? taskData : t)));
+    } else {
+      setTasks([taskData, ...tasks]);
+    }
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    setTasks(tasks.filter((t) => t.id !== taskId));
+  };
+
+  const handleAddLogbookEntry = (entry: Omit<LogbookEntry, 'id'>) => {
+    const newEntry: LogbookEntry = {
+      ...entry,
+      id: 'log-' + Date.now(),
+    };
+    setLogbook([newEntry, ...logbook]);
+  };
+
+  const counts = {
+    total: displayedTasks.length,
+    inProgress: displayedTasks.filter((t) => t.status === 'in_progress').length,
+    logbook: logbook.length,
+    milestones: milestones.length,
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen flex flex-col bg-[#F8F6F0]">
+      {/* Top Navigation */}
+      <Navbar
+        currentFilter={selectedPartnerFilter}
+        onFilterChange={setSelectedPartnerFilter}
+        partners={partners}
+        onOpenNewTask={() => {
+          setSelectedTask(null);
+          setIsModalOpen(true);
+        }}
+      />
+
+      <div className="flex-1 flex flex-col md:flex-row">
+        {/* Sidebar */}
+        <Sidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          counts={counts}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+          {activeTab === 'dashboard' && (
+            <DashboardView
+              tasks={displayedTasks}
+              partners={partners}
+              logbook={logbook}
+              milestones={milestones}
+              onSelectTask={(task) => {
+                setSelectedTask(task);
+                setIsModalOpen(true);
+              }}
+              onGoToTab={setActiveTab}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          )}
+
+          {activeTab === 'kanban' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-bold text-[#221F1D] tracking-tight">
+                    Tablero de Avance Kanban
+                  </h2>
+                  <p className="text-xs text-[#6E665D]">
+                    {selectedPartnerFilter === 'all'
+                      ? 'Visualizando todas las actividades del proyecto'
+                      : `Visualizando espacio de ${partners.find((p) => p.id === selectedPartnerFilter)?.name}`}
+                  </p>
+                </div>
+              </div>
+              <KanbanBoard
+                tasks={displayedTasks}
+                partners={partners}
+                onStatusChange={handleStatusChange}
+                onSelectTask={(task) => {
+                  setSelectedTask(task);
+                  setIsModalOpen(true);
+                }}
+              />
+            </div>
+          )}
+
+          {activeTab === 'tasks' && (
+            <TasksListView
+              tasks={displayedTasks}
+              partners={partners}
+              onSelectTask={(task) => {
+                setSelectedTask(task);
+                setIsModalOpen(true);
+              }}
+              onOpenNewTask={() => {
+                setSelectedTask(null);
+                setIsModalOpen(true);
+              }}
+              onStatusChange={handleStatusChange}
+            />
+          )}
+
+          {activeTab === 'logbook' && (
+            <LogbookView
+              entries={logbook}
+              partners={partners}
+              onAddEntry={handleAddLogbookEntry}
+            />
+          )}
+
+          {activeTab === 'milestones' && (
+            <MilestonesView milestones={milestones} />
+          )}
+        </main>
+      </div>
+
+      {/* Modal de Tarea */}
+      <TaskModal
+        task={selectedTask}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedTask(null);
+        }}
+        partners={partners}
+        onSaveTask={handleSaveTask}
+        onDeleteTask={handleDeleteTask}
+      />
     </div>
   );
 }
