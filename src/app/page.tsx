@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar, ActiveTab } from '@/components/Sidebar';
 import { DashboardView } from '@/components/DashboardView';
@@ -11,18 +11,20 @@ import { MilestonesView } from '@/components/MilestonesView';
 import { TaskModal } from '@/components/TaskModal';
 
 import {
-  INITIAL_PARTNERS,
-  INITIAL_TASKS,
-  INITIAL_LOGBOOK,
+  DEFAULT_PARTNERS,
+  EMPTY_TASKS,
+  EMPTY_LOGBOOK,
   INITIAL_MILESTONES,
 } from '@/lib/initialData';
-import { Task, LogbookEntry, TaskStatus } from '@/types';
+import { Task, LogbookEntry, TaskStatus, Milestone } from '@/types';
 
 export default function Home() {
-  const [partners] = useState(INITIAL_PARTNERS);
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [logbook, setLogbook] = useState<LogbookEntry[]>(INITIAL_LOGBOOK);
-  const [milestones] = useState(INITIAL_MILESTONES);
+  // Estado local con persistencia en localStorage para que tus datos reales no se pierdan
+  const [partners, setPartners] = useState(DEFAULT_PARTNERS);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Navegación y Filtros
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -31,6 +33,45 @@ export default function Home() {
   // Modal de Tarea
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
+
+  // Cargar datos reales guardados en el navegador
+  useEffect(() => {
+    try {
+      const savedTasks = localStorage.getItem('migalia_tasks');
+      const savedLogbook = localStorage.getItem('migalia_logbook');
+      const savedMilestones = localStorage.getItem('migalia_milestones');
+
+      if (savedTasks) setTasks(JSON.parse(savedTasks));
+      else setTasks(EMPTY_TASKS);
+
+      if (savedLogbook) setLogbook(JSON.parse(savedLogbook));
+      else setLogbook(EMPTY_LOGBOOK);
+
+      if (savedMilestones) setMilestones(JSON.parse(savedMilestones));
+      else setMilestones(INITIAL_MILESTONES);
+    } catch (e) {
+      console.error('Error al cargar datos locales:', e);
+    } finally {
+      setIsLoaded(true);
+    }
+  }, []);
+
+  // Guardar automáticamente en localStorage ante cualquier cambio
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('migalia_tasks', JSON.stringify(tasks));
+  }, [tasks, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('migalia_logbook', JSON.stringify(logbook));
+  }, [logbook, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('migalia_milestones', JSON.stringify(milestones));
+  }, [milestones, isLoaded]);
 
   // Filtrado por socio ("Mi Espacio" vs "Global")
   const displayedTasks = tasks.filter((task) => {
@@ -40,30 +81,58 @@ export default function Home() {
 
   // Manejo de Estados de Tareas
   const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
-    setTasks(
-      tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
     );
   };
 
   const handleSaveTask = (taskData: Task) => {
     const exists = tasks.some((t) => t.id === taskData.id);
     if (exists) {
-      setTasks(tasks.map((t) => (t.id === taskData.id ? taskData : t)));
+      setTasks((prev) => prev.map((t) => (t.id === taskData.id ? taskData : t)));
     } else {
-      setTasks([taskData, ...tasks]);
+      setTasks((prev) => [taskData, ...prev]);
     }
   };
 
   const handleDeleteTask = (taskId: string) => {
-    setTasks(tasks.filter((t) => t.id !== taskId));
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
   };
 
+  // Manejo de Bitácora
   const handleAddLogbookEntry = (entry: Omit<LogbookEntry, 'id'>) => {
     const newEntry: LogbookEntry = {
       ...entry,
       id: 'log-' + Date.now(),
     };
-    setLogbook([newEntry, ...logbook]);
+    setLogbook((prev) => [newEntry, ...prev]);
+  };
+
+  // Manejo de Hitos (Milestones)
+  const handleAddMilestone = (milestone: Omit<Milestone, 'id'>) => {
+    const newMilestone: Milestone = {
+      ...milestone,
+      id: 'ms-' + Date.now(),
+    };
+    setMilestones((prev) => [...prev, newMilestone]);
+  };
+
+  const handleUpdateMilestone = (updated: Milestone) => {
+    setMilestones((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+  };
+
+  const handleDeleteMilestone = (id: string) => {
+    setMilestones((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  // Limpiar todo para empezar desde cero si se desea
+  const handleResetToZero = () => {
+    if (confirm('¿Deseas vaciar todas las tareas y bitácora para empezar un proyecto 100% desde cero?')) {
+      setTasks([]);
+      setLogbook([]);
+      localStorage.removeItem('migalia_tasks');
+      localStorage.removeItem('migalia_logbook');
+    }
   };
 
   const counts = {
@@ -82,6 +151,7 @@ export default function Home() {
         partners={partners}
         onOpenNewTask={() => {
           setSelectedTask(null);
+          setPresetStatus('todo');
           setIsModalOpen(true);
         }}
       />
@@ -97,17 +167,27 @@ export default function Home() {
         {/* Main Content Area */}
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           {activeTab === 'dashboard' && (
-            <DashboardView
-              tasks={displayedTasks}
-              partners={partners}
-              logbook={logbook}
-              milestones={milestones}
-              onSelectTask={(task) => {
-                setSelectedTask(task);
-                setIsModalOpen(true);
-              }}
-              onGoToTab={setActiveTab}
-            />
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={handleResetToZero}
+                  className="text-[11px] text-[#A39E93] hover:text-[#C84B31] transition-colors"
+                >
+                  Vaciar y empezar desde 0
+                </button>
+              </div>
+              <DashboardView
+                tasks={displayedTasks}
+                partners={partners}
+                logbook={logbook}
+                milestones={milestones}
+                onSelectTask={(task) => {
+                  setSelectedTask(task);
+                  setIsModalOpen(true);
+                }}
+                onGoToTab={setActiveTab}
+              />
+            </div>
           )}
 
           {activeTab === 'kanban' && (
@@ -115,14 +195,24 @@ export default function Home() {
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-lg font-bold text-[#221F1D] tracking-tight">
-                    Tablero de Avance Kanban
+                    Tablero de Avance Kanban (Arrastrar y Soltar)
                   </h2>
                   <p className="text-xs text-[#6E665D]">
                     {selectedPartnerFilter === 'all'
-                      ? 'Visualizando todas las actividades del proyecto'
+                      ? 'Arrastra las tarjetas entre columnas para actualizar el estado en tiempo real'
                       : `Visualizando espacio de ${partners.find((p) => p.id === selectedPartnerFilter)?.name}`}
                   </p>
                 </div>
+                <button
+                  onClick={() => {
+                    setSelectedTask(null);
+                    setPresetStatus('todo');
+                    setIsModalOpen(true);
+                  }}
+                  className="text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] px-3.5 py-1.5 rounded-xl hover:bg-[#34302C]"
+                >
+                  + Añadir Tarjeta
+                </button>
               </div>
               <KanbanBoard
                 tasks={displayedTasks}
@@ -130,6 +220,11 @@ export default function Home() {
                 onStatusChange={handleStatusChange}
                 onSelectTask={(task) => {
                   setSelectedTask(task);
+                  setIsModalOpen(true);
+                }}
+                onOpenNewTaskWithStatus={(status) => {
+                  setSelectedTask(null);
+                  setPresetStatus(status);
                   setIsModalOpen(true);
                 }}
               />
@@ -146,6 +241,7 @@ export default function Home() {
               }}
               onOpenNewTask={() => {
                 setSelectedTask(null);
+                setPresetStatus('todo');
                 setIsModalOpen(true);
               }}
               onStatusChange={handleStatusChange}
@@ -161,7 +257,12 @@ export default function Home() {
           )}
 
           {activeTab === 'milestones' && (
-            <MilestonesView milestones={milestones} />
+            <MilestonesView
+              milestones={milestones}
+              onAddMilestone={handleAddMilestone}
+              onUpdateMilestone={handleUpdateMilestone}
+              onDeleteMilestone={handleDeleteMilestone}
+            />
           )}
         </main>
       </div>

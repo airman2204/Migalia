@@ -2,13 +2,15 @@
 
 import React from 'react';
 import { Task, Partner, TaskStatus } from '@/types';
-import { Clock, CheckSquare, AlertCircle, User } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { Clock, CheckSquare, User, GripVertical, Plus } from 'lucide-react';
 
 interface KanbanBoardProps {
   tasks: Task[];
   partners: Partner[];
   onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
   onSelectTask: (task: Task) => void;
+  onOpenNewTaskWithStatus?: (status: TaskStatus) => void;
 }
 
 const COLUMNS: { id: TaskStatus; label: string; dotColor: string }[] = [
@@ -24,8 +26,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   partners,
   onStatusChange,
   onSelectTask,
+  onOpenNewTaskWithStatus,
 }) => {
   const getPartner = (id: string) => partners.find((p) => p.id === id);
+
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, draggableId } = result;
+    if (!destination) return;
+
+    const newStatus = destination.droppableId as TaskStatus;
+    onStatusChange(draggableId, newStatus);
+  };
 
   const getPriorityBadge = (priority: Task['priority']) => {
     switch (priority) {
@@ -41,109 +52,132 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 overflow-x-auto pb-4">
-      {COLUMNS.map((col) => {
-        const colTasks = tasks.filter((t) => t.status === col.id);
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 overflow-x-auto pb-6">
+        {COLUMNS.map((col) => {
+          const colTasks = tasks.filter((t) => t.status === col.id);
 
-        return (
-          <div
-            key={col.id}
-            className="flex flex-col bg-[#F2EFE9]/60 border border-[#E6DFD5] rounded-2xl p-3 min-w-[260px]"
-          >
-            {/* Column Header */}
-            <div className="flex items-center justify-between mb-3 px-1">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
-                <h3 className="text-xs font-bold text-[#221F1D] tracking-wide">
-                  {col.label}
-                </h3>
+          return (
+            <div
+              key={col.id}
+              className="flex flex-col bg-[#F2EFE9]/70 border border-[#E6DFD5] rounded-2xl p-3 min-w-[260px] min-h-[480px]"
+            >
+              {/* Encabezado de Columna */}
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
+                  <h3 className="text-xs font-bold text-[#221F1D] tracking-wide">
+                    {col.label}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-[#6E665D] bg-[#E6DFD5] px-2 py-0.5 rounded-full">
+                    {colTasks.length}
+                  </span>
+                  {onOpenNewTaskWithStatus && (
+                    <button
+                      onClick={() => onOpenNewTaskWithStatus(col.id)}
+                      title={`Añadir a ${col.label}`}
+                      className="p-1 rounded-md text-[#6E665D] hover:text-[#221F1D] hover:bg-[#EBE7DF]"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
-              <span className="text-[10px] font-bold text-[#6E665D] bg-[#E6DFD5] px-2 py-0.5 rounded-full">
-                {colTasks.length}
-              </span>
-            </div>
 
-            {/* Task Cards */}
-            <div className="space-y-3 flex-1">
-              {colTasks.map((task) => {
-                const partner = getPartner(task.assignedTo);
-                const completedSubtasks = task.subtasks.filter((s) => s.completed).length;
-
-                return (
+              {/* Zona Droppable */}
+              <Droppable droppableId={col.id}>
+                {(provided, snapshot) => (
                   <div
-                    key={task.id}
-                    onClick={() => onSelectTask(task)}
-                    className="bg-[#FFFFFF] border border-[#E6DFD5] hover:border-[#C59B27] p-3.5 rounded-xl shadow-xs cursor-pointer transition-all duration-150 hover:-translate-y-0.5"
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`space-y-3 flex-1 transition-colors rounded-xl p-1 ${
+                      snapshot.isDraggingOver ? 'bg-[#EBE7DF]/60 border border-dashed border-[#C59B27]' : ''
+                    }`}
                   >
-                    {/* Category & Priority */}
-                    <div className="flex items-center justify-between gap-1 mb-2">
-                      <span className="text-[10px] font-semibold text-[#8C6239] uppercase tracking-wider truncate max-w-[130px]">
-                        {task.category}
-                      </span>
-                      {getPriorityBadge(task.priority)}
-                    </div>
+                    {colTasks.map((task, index) => {
+                      const partner = getPartner(task.assignedTo);
+                      const completedSubtasks = task.subtasks.filter((s) => s.completed).length;
 
-                    {/* Title */}
-                    <h4 className="text-xs font-semibold text-[#221F1D] leading-snug mb-2 line-clamp-2">
-                      {task.title}
-                    </h4>
+                      return (
+                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              onClick={() => onSelectTask(task)}
+                              className={`bg-[#FFFFFF] border rounded-xl p-3.5 shadow-xs cursor-pointer transition-shadow ${
+                                snapshot.isDragging
+                                  ? 'border-[#C59B27] shadow-lg ring-2 ring-[#C59B27]/20 scale-102 rotate-1'
+                                  : 'border-[#E6DFD5] hover:border-[#C59B27]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1 mb-2">
+                                <div className="flex items-center gap-1.5">
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="text-[#A39E93] hover:text-[#221F1D] cursor-grab active:cursor-grabbing p-0.5"
+                                    title="Arrastrar tarjeta"
+                                  >
+                                    <GripVertical className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-[#8C6239] uppercase tracking-wider truncate max-w-[120px]">
+                                    {task.category}
+                                  </span>
+                                </div>
+                                {getPriorityBadge(task.priority)}
+                              </div>
 
-                    {/* Subtasks Progress if any */}
-                    {task.subtasks.length > 0 && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#6E665D] mb-2.5 bg-[#F8F6F0] px-2 py-1 rounded-md">
-                        <CheckSquare className="w-3 h-3 text-[#8C6239]" />
-                        <span>
-                          {completedSubtasks}/{task.subtasks.length} subtareas
-                        </span>
+                              <h4 className="text-xs font-semibold text-[#221F1D] leading-snug mb-2 line-clamp-2">
+                                {task.title}
+                              </h4>
+
+                              {task.subtasks.length > 0 && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-[#6E665D] mb-2.5 bg-[#F8F6F0] px-2 py-1 rounded-md">
+                                  <CheckSquare className="w-3 h-3 text-[#8C6239]" />
+                                  <span>
+                                    {completedSubtasks}/{task.subtasks.length} subtareas
+                                  </span>
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-between pt-2 border-t border-[#F2EFE9] text-[11px]">
+                                <div className="flex items-center gap-1 text-[#6E665D]">
+                                  <Clock className="w-3 h-3 text-[#A39E93]" />
+                                  <span>{task.dueDate.substring(5)}</span>
+                                </div>
+
+                                {partner && (
+                                  <div
+                                    title={`${partner.name} (${partner.role})`}
+                                    className="flex items-center gap-1 bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]"
+                                  >
+                                    <User className="w-2.5 h-2.5 text-[#8C6239]" />
+                                    <span>{partner.shortName}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+
+                    {colTasks.length === 0 && !snapshot.isDraggingOver && (
+                      <div className="h-28 border border-dashed border-[#DDD5C7] rounded-xl flex flex-col items-center justify-center text-[11px] text-[#A39E93] gap-1 p-3 text-center">
+                        <span>Sin actividades</span>
+                        <span className="text-[10px] text-[#C4BAAA]">Arrastra aquí o haz clic en +</span>
                       </div>
                     )}
-
-                    {/* Footer: Due date & Assigned Partner */}
-                    <div className="flex items-center justify-between pt-2 border-t border-[#F2EFE9] text-[11px]">
-                      <div className="flex items-center gap-1 text-[#6E665D]">
-                        <Clock className="w-3 h-3 text-[#A39E93]" />
-                        <span>{task.dueDate.substring(5)}</span>
-                      </div>
-
-                      {partner && (
-                        <div
-                          title={`${partner.name} (${partner.role})`}
-                          className="flex items-center gap-1 bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]"
-                        >
-                          <User className="w-2.5 h-2.5 text-[#8C6239]" />
-                          <span>{partner.shortName}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick Move Select for instant feedback */}
-                    <div className="mt-2.5 pt-2 border-t border-[#F8F6F0] flex justify-end">
-                      <select
-                        value={task.status}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => onStatusChange(task.id, e.target.value as TaskStatus)}
-                        className="text-[10px] bg-[#F8F6F0] text-[#6E665D] border border-[#E6DFD5] rounded-md px-1.5 py-0.5 focus:outline-none focus:border-[#C59B27]"
-                      >
-                        <option value="backlog">Mover a: Ideas</option>
-                        <option value="todo">Mover a: Por Hacer</option>
-                        <option value="in_progress">Mover a: En Proceso</option>
-                        <option value="review">Mover a: Revisión</option>
-                        <option value="done">Mover a: Terminado</option>
-                      </select>
-                    </div>
                   </div>
-                );
-              })}
-
-              {colTasks.length === 0 && (
-                <div className="h-24 border border-dashed border-[#DDD5C7] rounded-xl flex items-center justify-center text-[11px] text-[#A39E93]">
-                  Sin pendientes
-                </div>
-              )}
+                )}
+              </Droppable>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </DragDropContext>
   );
 };
