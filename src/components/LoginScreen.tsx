@@ -10,56 +10,47 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) => {
-  const [activeMethod, setActiveMethod] = useState<'profiles' | 'zoho'>('profiles');
   const [zohoEmail, setZohoEmail] = useState('');
   const [zohoPassword, setZohoPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Ingreso directo seleccionando perfil de socio
-  const handleProfileSelect = (partner: Partner) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      onLogin(partner);
-      setIsLoading(false);
-    }, 400);
-  };
-
-  // Ingreso con correo Zoho Mail corporativo (@migalia.mx o cuenta Zoho)
+  // Ingreso exclusivo con Zoho Mail corporativo
   const handleZohoLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     if (!zohoEmail.trim()) {
-      setErrorMessage('Por favor ingresa tu correo de Zoho Mail.');
+      setErrorMessage('Por favor ingresa tu correo de Zoho Mail corporativo.');
       return;
     }
 
     setIsLoading(true);
 
-    // Buscar si el correo pertenece a uno de los socios registrados
+    // Buscar si el correo coincide con alguno de los socios precargados o nuevo socio
+    const cleanEmail = zohoEmail.trim().toLowerCase();
     const existingPartner = partners.find(
-      (p) => p.email.toLowerCase() === zohoEmail.trim().toLowerCase()
+      (p) => p.email.toLowerCase() === cleanEmail
     );
 
     setTimeout(() => {
       if (existingPartner) {
         onLogin(existingPartner);
       } else {
-        // Permitir inicio creando socio al vuelo con su correo corporativo Zoho
-        const namePart = zohoEmail.split('@')[0];
+        // Asignar nombre a partir del prefijo de correo (ej. mario@migalia.mx -> Mario)
+        const namePart = cleanEmail.split('@')[0];
         const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
         const newPartner: Partner = {
           id: 'partner-' + Date.now(),
           name: formattedName,
           shortName: formattedName,
-          email: zohoEmail.trim().toLowerCase(),
-          role: 'Cofundador (Zoho)',
+          email: cleanEmail,
+          role: 'Socio Cofundador',
           avatar: formattedName.charAt(0).toUpperCase(),
         };
         onLogin(newPartner);
       }
       setIsLoading(false);
-    }, 600);
+    }, 500);
   };
 
   return (
@@ -81,150 +72,108 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
       </div>
 
       {/* Main Login Card */}
-      <div className="max-w-md w-full mx-auto my-8 bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-7 sm:p-8 shadow-sm space-y-6">
+      <div className="max-w-md w-full mx-auto my-8 bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-7 sm:p-9 shadow-sm space-y-6">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A] px-3 py-1 rounded-full text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Etapa 1: Planeación de Apertura</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#221F1D] tracking-tight">
-            Bienvenido a MÍGALIA
+            Acceso Socios MÍGALIA
           </h1>
           <p className="text-xs text-[#6E665D] leading-relaxed">
-            Plataforma interna para coordinar obra, trámites, recetas y cronograma de apertura de la boutique en Puebla.
+            Ingresa con tu cuenta de correo corporativa en <span className="font-semibold text-[#221F1D]">Zoho Mail</span> para acceder a tu espacio de trabajo.
           </p>
         </div>
 
-        {/* Tabs de método de acceso */}
-        <div className="flex bg-[#EBE7DF] p-1 rounded-xl border border-[#DDD5C7] text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => setActiveMethod('profiles')}
-            className={`flex-1 py-2 rounded-lg transition-all ${
-              activeMethod === 'profiles'
-                ? 'bg-[#221F1D] text-[#F8F6F0] font-semibold shadow-xs'
-                : 'text-[#6E665D] hover:text-[#221F1D]'
-            }`}
-          >
-            Socios Fundadores
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMethod('zoho')}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-              activeMethod === 'zoho'
-                ? 'bg-[#221F1D] text-[#F8F6F0] font-semibold shadow-xs'
-                : 'text-[#6E665D] hover:text-[#221F1D]'
-            }`}
-          >
-            <Mail className="w-3.5 h-3.5 text-[#C59B27]" />
-            <span>Zoho Mail</span>
-          </button>
-        </div>
-
-        {/* Método 1: Selección de Perfiles */}
-        {activeMethod === 'profiles' && (
-          <div className="space-y-3">
-            <p className="text-[11px] font-bold text-[#8C6239] uppercase tracking-wider text-center">
-              Selecciona tu Perfil de Socio
+        {/* Formulario exclusivo Zoho Mail */}
+        <form onSubmit={handleZohoLogin} className="space-y-4 pt-1">
+          {errorMessage && (
+            <p className="text-xs text-[#C84B31] bg-[#FDF0ED] p-2.5 rounded-xl border border-[#F5C6BC]">
+              {errorMessage}
             </p>
+          )}
 
-            <div className="space-y-2.5">
-              {partners.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleProfileSelect(p)}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-[#E6DFD5] hover:border-[#C59B27] hover:bg-[#FAF8F5] transition-all duration-150 group text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#F2EFE9] border border-[#DDD5C7] flex items-center justify-center text-sm font-bold text-[#221F1D] group-hover:bg-[#C59B27] group-hover:text-[#FFFFFF] transition-colors">
-                      {p.shortName.charAt(p.shortName.length - 1)}
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-bold text-[#221F1D] group-hover:text-[#8C6239]">
-                        {p.name}
-                      </h3>
-                      <p className="text-[11px] text-[#6E665D]">{p.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8C6239] group-hover:text-[#C59B27]">
-                    <span className="hidden sm:inline">Entrar</span>
-                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </button>
-              ))}
+          <div>
+            <label className="block text-xs font-semibold text-[#221F1D] mb-1.5">
+              Correo Corporativo (Zoho Mail)
+            </label>
+            <div className="relative">
+              <input
+                type="email"
+                value={zohoEmail}
+                onChange={(e) => setZohoEmail(e.target.value)}
+                placeholder="socio@migalia.mx"
+                className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-9 pr-3 py-3 text-[#221F1D] placeholder-[#A39E93] focus:outline-none focus:border-[#C59B27]"
+                required
+              />
+              <Mail className="w-4 h-4 text-[#8C6239] absolute left-3 top-3.5" />
             </div>
           </div>
-        )}
 
-        {/* Método 2: Acceso con Zoho Mail */}
-        {activeMethod === 'zoho' && (
-          <form onSubmit={handleZohoLogin} className="space-y-3.5">
-            <div className="bg-[#F8F6F0] border border-[#E6DFD5] p-3 rounded-xl flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#221F1D] text-[#C59B27] flex items-center justify-center shrink-0">
-                <Mail className="w-4 h-4" />
-              </div>
-              <p className="text-[11px] text-[#6E665D] leading-tight">
-                Ingresa con tu cuenta corporativa de <span className="font-bold text-[#221F1D]">Zoho Mail</span> (ej. socio@migalia.mx).
-              </p>
-            </div>
-
-            {errorMessage && (
-              <p className="text-xs text-[#C84B31] bg-[#FDF0ED] p-2 rounded-lg border border-[#F5C6BC]">
-                {errorMessage}
-              </p>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-[#221F1D] mb-1">
-                Correo Zoho Mail
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-[#221F1D]">
+                Contraseña
               </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={zohoEmail}
-                  onChange={(e) => setZohoEmail(e.target.value)}
-                  placeholder="ejemplo@migalia.mx o tu_cuenta@zohomail.com"
-                  className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-8 pr-3 py-2.5 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
-                  required
-                />
-                <Mail className="w-4 h-4 text-[#A39E93] absolute left-2.5 top-3" />
-              </div>
+              <span className="text-[10px] text-[#A39E93]">Zoho Workspace</span>
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#221F1D] mb-1">
-                Contraseña / Token de acceso
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={zohoPassword}
-                  onChange={(e) => setZohoPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-8 pr-3 py-2.5 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
-                />
-                <Lock className="w-4 h-4 text-[#A39E93] absolute left-2.5 top-3" />
-              </div>
+            <div className="relative">
+              <input
+                type="password"
+                value={zohoPassword}
+                onChange={(e) => setZohoPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl pl-9 pr-3 py-3 text-[#221F1D] placeholder-[#A39E93] focus:outline-none focus:border-[#C59B27]"
+              />
+              <Lock className="w-4 h-4 text-[#8C6239] absolute left-3 top-3.5" />
             </div>
+          </div>
 
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all active:scale-98"
+          >
+            <span>{isLoading ? 'Autenticando en Zoho...' : 'Iniciar Sesión con Zoho Mail'}</span>
+            <ArrowRight className="w-4 h-4 text-[#C59B27]" />
+          </button>
+        </form>
+
+        {/* Cuentas de Acceso Rápido sugeridas */}
+        <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3.5 rounded-2xl text-[11px] text-[#6E665D] space-y-1.5">
+          <p className="font-semibold text-[#221F1D] flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#4A6B53]" />
+            Cuentas de Co-Fundadores configuradas:
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
             <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-bold py-3 px-4 rounded-xl shadow-xs transition-all"
+              type="button"
+              onClick={() => {
+                setZohoEmail('socio1@migalia.mx');
+                setZohoPassword('migalia2026');
+              }}
+              className="bg-[#FFFFFF] border border-[#DDD5C7] hover:border-[#C59B27] px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#221F1D]"
             >
-              <span>{isLoading ? 'Verificando con Zoho...' : 'Acceder con Zoho Mail'}</span>
-              <ArrowRight className="w-4 h-4 text-[#C59B27]" />
+              socio1@migalia.mx
             </button>
-          </form>
-        )}
+            <button
+              type="button"
+              onClick={() => {
+                setZohoEmail('socio2@migalia.mx');
+                setZohoPassword('migalia2026');
+              }}
+              className="bg-[#FFFFFF] border border-[#DDD5C7] hover:border-[#C59B27] px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#221F1D]"
+            >
+              socio2@migalia.mx
+            </button>
+          </div>
+        </div>
 
-        {/* Info de Seguridad & Coste */}
+        {/* Info de Seguridad */}
         <div className="pt-2 text-center text-[10px] text-[#A39E93] space-y-1 border-t border-[#F2EFE9]">
-          <p>Autenticación empresarial con Zoho Mail & Supabase Auth</p>
-          <p>Plan 100% Gratuito (Sin costos de licencia)</p>
+          <p>Autenticación empresarial con Zoho Mail & Dominio Migalia</p>
+          <p>Coste operativo de correo: $0 (Zoho Forever Free Tier)</p>
         </div>
       </div>
 
