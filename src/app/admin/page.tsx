@@ -315,11 +315,6 @@ export default function Home() {
         onFilterChange={setSelectedPartnerFilter}
         partners={partners}
         currentPartner={currentPartner}
-        onOpenNewTask={() => {
-          setSelectedTask(null);
-          setPresetStatus('todo');
-          setIsModalOpen(true);
-        }}
         onLogout={handleLogout}
       />
 
@@ -372,16 +367,6 @@ export default function Home() {
                       : `Visualizando espacio de ${partners.find((p) => p.id === selectedPartnerFilter)?.name}`}
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedTask(null);
-                    setPresetStatus('todo');
-                    setIsModalOpen(true);
-                  }}
-                  className="text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] px-3.5 py-1.5 rounded-xl hover:bg-[#34302C]"
-                >
-                  + Añadir Tarjeta
-                </button>
               </div>
               <KanbanBoard
                 tasks={displayedTasks}
@@ -389,11 +374,6 @@ export default function Home() {
                 onStatusChange={handleStatusChange}
                 onSelectTask={(task) => {
                   setSelectedTask(task);
-                  setIsModalOpen(true);
-                }}
-                onOpenNewTaskWithStatus={(status) => {
-                  setSelectedTask(null);
-                  setPresetStatus(status);
                   setIsModalOpen(true);
                 }}
               />

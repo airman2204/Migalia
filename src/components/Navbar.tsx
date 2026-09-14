@@ -9,7 +9,6 @@ interface NavbarProps {
   onFilterChange: (filter: 'all' | string) => void;
   partners: Partner[];
   currentPartner: Partner | null;
-  onOpenNewTask: () => void;
   onLogout: () => void;
 }
 
@@ -18,7 +17,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onFilterChange,
   partners,
   currentPartner,
-  onOpenNewTask,
   onLogout,
 }) => {
   return (
@@ -71,16 +69,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            onClick={onOpenNewTask}
-            className="flex items-center gap-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-medium transition-all shadow-sm active:scale-95 border border-[#34302C]"
-          >
-            <Plus className="w-4 h-4 text-[#C59B27]" />
-            <span className="hidden sm:inline">Nueva Actividad</span>
-          </button>
-
           {/* User Profile / Logout */}
-          <div className="flex items-center gap-2 pl-2 border-l border-[#E6DFD5]">
+          <div className="flex items-center gap-2 pl-2">
             <div
               title={`Sesión iniciada como ${currentPartner?.name || 'Socio'}`}
               className="w-8 h-8 rounded-full bg-[#EBE7DF] border border-[#DDD5C7] flex items-center justify-center text-[#221F1D] font-bold text-xs"

@@ -10,7 +10,6 @@ interface KanbanBoardProps {
   partners: Partner[];
   onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
   onSelectTask: (task: Task) => void;
-  onOpenNewTaskWithStatus?: (status: TaskStatus) => void;
 }
 
 const COLUMNS: { id: TaskStatus; label: string; dotColor: string }[] = [
@@ -26,7 +25,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   partners,
   onStatusChange,
   onSelectTask,
-  onOpenNewTaskWithStatus,
 }) => {
   const getPartner = (id: string) => partners.find((p) => p.id === id);
 
@@ -95,15 +93,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   <span className="text-[10px] font-bold text-[#6E665D] bg-[#E6DFD5] px-2 py-0.5 rounded-full">
                     {colTasks.length}
                   </span>
-                  {onOpenNewTaskWithStatus && (
-                    <button
-                      onClick={() => onOpenNewTaskWithStatus(col.id)}
-                      title={`Añadir a ${col.label}`}
-                      className="p-1 rounded-md text-[#6E665D] hover:text-[#221F1D] hover:bg-[#EBE7DF]"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  )}
                 </div>
               </div>
 
