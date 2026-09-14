@@ -104,7 +104,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E6DFD5] bg-[#F8F6F0]">
           <h3 className="text-sm font-bold text-[#221F1D]">
-            {task ? 'Detalle de Actividad' : 'Nueva Actividad de Planeación'}
+            {task ? 'Detalle de Actividad' : 'Nueva Actividad'}
           </h3>
           <button
             onClick={onClose}
@@ -130,10 +130,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-[#6E665D] mb-1">
-                Frente / Categoría
+                Categoría
               </label>
               <select
                 value={category}
@@ -150,19 +150,38 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-[11px] font-semibold text-[#6E665D] mb-1">
-                Socio Responsable
+                Responsable
               </label>
-              <select
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl px-3 py-2 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
-              >
-                {partners.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.shortName})
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-wrap gap-1.5 p-1 bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl min-h-[36px] items-center">
+                {partners.map((p) => {
+                  const currentIds = assignedTo.split(',').map((s) => s.trim()).filter(Boolean);
+                  const isSelected = currentIds.includes(p.id);
+
+                  return (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => {
+                        let newIds: string[];
+                        if (isSelected) {
+                          newIds = currentIds.filter((id) => id !== p.id);
+                        } else {
+                          newIds = [...currentIds, p.id];
+                        }
+                        setAssignedTo(newIds.join(','));
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                        isSelected
+                          ? 'bg-[#221F1D] text-[#F8F6F0] shadow-2xs font-semibold'
+                          : 'bg-[#FFFFFF] text-[#6E665D] hover:bg-[#EBE7DF] border border-[#E6DFD5]'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-[#C59B27]' : 'bg-[#DDD5C7]'}`} />
+                      <span>{p.shortName || p.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

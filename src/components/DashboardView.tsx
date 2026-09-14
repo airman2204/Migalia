@@ -217,7 +217,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="space-y-3">
             {partners.map((partner, index) => {
               const partnerTasks = tasks.filter(
-                (t) => t.assignedTo === partner.id && t.status !== 'done'
+                (t) => (t.assignedTo || '').split(',').map((s) => s.trim()).includes(partner.id) && t.status !== 'done'
               );
               const percent = totalTasks > 0 ? (partnerTasks.length / totalTasks) * 100 : 0;
               const barColor = index % 2 === 0 ? 'bg-[#8C6239]' : 'bg-[#C59B27]';

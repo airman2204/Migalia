@@ -192,7 +192,8 @@ export default function Home() {
   // Filtrado por socio ("Mi Espacio" vs "Global")
   const displayedTasks = tasks.filter((task) => {
     if (selectedPartnerFilter === 'all') return true;
-    return task.assignedTo === selectedPartnerFilter;
+    const assigned = (task.assignedTo || '').split(',').map((s) => s.trim());
+    return assigned.includes(selectedPartnerFilter);
   });
 
   // 2. Operaciones con Tareas en Supabase

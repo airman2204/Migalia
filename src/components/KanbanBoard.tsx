@@ -174,15 +174,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                   ) : null}
                                 </div>
 
-                                {partner && (
-                                  <div
-                                    title={`${partner.name} (${partner.role})`}
-                                    className="flex items-center gap-1 bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]"
-                                  >
-                                    <User className="w-2.5 h-2.5 text-[#8C6239]" />
-                                    <span>{partner.shortName}</span>
-                                  </div>
-                                )}
+                                <div className="flex flex-wrap gap-1">
+                                  {task.assignedTo &&
+                                    task.assignedTo.split(',').map((id) => {
+                                      const p = getPartner(id.trim());
+                                      if (!p) return null;
+                                      return (
+                                        <div
+                                          key={p.id}
+                                          title={`${p.name} (${p.role})`}
+                                          className="flex items-center gap-1 bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]"
+                                        >
+                                          <User className="w-2.5 h-2.5 text-[#8C6239]" />
+                                          <span>{p.shortName}</span>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
                               </div>
                             </div>
                           )}

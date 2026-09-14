@@ -188,9 +188,23 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
                         {t.category}
                       </td>
                       <td className="px-3 py-3">
-                        <span className="bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]">
-                          {partner?.shortName || 'Sin asignar'}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {t.assignedTo ? (
+                            t.assignedTo.split(',').map((id) => {
+                              const p = getPartner(id.trim());
+                              return (
+                                <span
+                                  key={id}
+                                  className="bg-[#F2EFE9] border border-[#DDD5C7] px-2 py-0.5 rounded-full text-[10px] font-medium text-[#221F1D]"
+                                >
+                                  {p?.shortName || p?.name || id}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-[#A39E93] text-[10px]">Sin asignar</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-3">{getPriorityBadge(t.priority)}</td>
                       <td className="px-3 py-3">
