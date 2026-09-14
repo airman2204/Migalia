@@ -13,12 +13,16 @@ interface TaskModalProps {
   onDeleteTask?: (taskId: string) => void;
 }
 
-const CATEGORIES: TaskCategory[] = [
+const CATEGORIES: string[] = [
+  'Legal & Permisos',
+  'Finanzas',
+  'Recetas & Menú',
+  'Branding',
+  'Comercial & Ventas',
   'Obra & Interiorismo',
   'Equipamiento',
-  'Legal & S.A.',
-  'Recetas & Pruebas',
-  'Empaque & Marca',
+  'Proveedores',
+  'Operaciones',
   'Estrategia E-2',
 ];
 

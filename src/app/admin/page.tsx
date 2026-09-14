@@ -96,23 +96,39 @@ export default function Home() {
         const { data: dbTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
         if (dbTasks) {
           setTasks(
-            dbTasks.map((t) => ({
-              id: t.id,
-              title: t.title,
-              description: t.description || '',
-              status: t.status as TaskStatus,
-              priority: t.priority as any,
-              assignedTo: t.assigned_to || '',
-              category: t.category as any,
-              startDate: t.start_date || '',
-              dueDate: t.due_date || '',
-              estimatedCost: t.estimated_cost ? Number(t.estimated_cost) : undefined,
-              actualCost: t.actual_cost ? Number(t.actual_cost) : undefined,
-              isBlocked: !!t.is_blocked,
-              blockerReason: t.blocker_reason || '',
-              subtasks: t.subtasks || [],
-              createdAt: t.created_at,
-            }))
+            dbTasks.map((t) => {
+              const rawSubtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+              const metaCost = rawSubtasks.find((s: any) => s.id === 'meta-cost');
+              const cleanSubtasks = rawSubtasks.filter((s: any) => s.id !== 'meta-cost');
+
+              return {
+                id: t.id,
+                title: t.title,
+                description: t.description || '',
+                status: t.status as TaskStatus,
+                priority: t.priority as any,
+                assignedTo: t.assigned_to || '',
+                category: t.category as any,
+                startDate: t.start_date || (metaCost ? metaCost.startDate : '') || '',
+                dueDate: t.due_date || '',
+                estimatedCost: t.estimated_cost !== undefined && t.estimated_cost !== null
+                  ? Number(t.estimated_cost)
+                  : metaCost?.estimated !== undefined
+                  ? Number(metaCost.estimated)
+                  : undefined,
+                actualCost: t.actual_cost !== undefined && t.actual_cost !== null
+                  ? Number(t.actual_cost)
+                  : metaCost?.actual !== undefined
+                  ? Number(metaCost.actual)
+                  : undefined,
+                isBlocked: t.is_blocked !== undefined && t.is_blocked !== null
+                  ? !!t.is_blocked
+                  : !!metaCost?.isBlocked,
+                blockerReason: t.blocker_reason || metaCost?.blockerReason || '',
+                subtasks: cleanSubtasks,
+                createdAt: t.created_at,
+              };
+            })
           );
         }
 
@@ -195,6 +211,19 @@ export default function Home() {
       setTasks((prev) => [taskData, ...prev]);
     }
 
+    const subtasksWithMeta = [
+      ...taskData.subtasks,
+      {
+        id: 'meta-cost',
+        title: '__cost__',
+        estimated: taskData.estimatedCost,
+        actual: taskData.actualCost,
+        startDate: taskData.startDate,
+        isBlocked: taskData.isBlocked,
+        blockerReason: taskData.blockerReason,
+      },
+    ];
+
     await supabase.from('tasks').upsert({
       id: taskData.id,
       title: taskData.title,
@@ -203,13 +232,8 @@ export default function Home() {
       priority: taskData.priority,
       assigned_to: taskData.assignedTo || null,
       category: taskData.category,
-      start_date: taskData.startDate || null,
       due_date: taskData.dueDate || null,
-      estimated_cost: taskData.estimatedCost ?? null,
-      actual_cost: taskData.actualCost ?? null,
-      is_blocked: taskData.isBlocked ?? false,
-      blocker_reason: taskData.blockerReason || null,
-      subtasks: taskData.subtasks,
+      subtasks: subtasksWithMeta,
     });
   };
 

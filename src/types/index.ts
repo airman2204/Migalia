@@ -1,6 +1,20 @@
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done';
-export type TaskCategory = 'Obra & Interiorismo' | 'Equipamiento' | 'Legal & S.A.' | 'Recetas & Pruebas' | 'Empaque & Marca' | 'Estrategia E-2';
+export type TaskCategory =
+  | 'Legal & Permisos'
+  | 'Legal & S.A.'
+  | 'Finanzas'
+  | 'Recetas & Menú'
+  | 'Recetas & Pruebas'
+  | 'Branding'
+  | 'Empaque & Marca'
+  | 'Comercial & Ventas'
+  | 'Obra & Interiorismo'
+  | 'Equipamiento'
+  | 'Proveedores'
+  | 'Operaciones'
+  | 'Estrategia E-2'
+  | string;
 
 export interface Partner {
   id: string;
