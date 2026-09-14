@@ -10,6 +10,7 @@ import { LogbookView } from '@/components/LogbookView';
 import { MilestonesView } from '@/components/MilestonesView';
 import { TaskModal } from '@/components/TaskModal';
 import { LoginScreen } from '@/components/LoginScreen';
+import { SettingsModal } from '@/components/SettingsModal';
 
 import {
   DEFAULT_PARTNERS,
@@ -24,20 +25,22 @@ export default function Home() {
   const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
 
   // Estado local con persistencia en localStorage
-  const [partners, setPartners] = useState(DEFAULT_PARTNERS);
+  const [partners, setPartners] = useState<Partner[]>(DEFAULT_PARTNERS);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [budget, setBudget] = useState<number>(250000);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Modales
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
 
   // Navegación y Filtros
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [selectedPartnerFilter, setSelectedPartnerFilter] = useState<'all' | string>('all');
-
-  // Modal de Tarea
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
 
   // Cargar sesión y datos guardados en el navegador
   useEffect(() => {
@@ -46,8 +49,15 @@ export default function Home() {
       if (savedUser) {
         const parsed = JSON.parse(savedUser);
         setCurrentPartner(parsed);
-        setSelectedPartnerFilter(parsed.id); // Al entrar, abre por defecto su propio espacio
+        setSelectedPartnerFilter(parsed.id);
       }
+
+      const savedPartners = localStorage.getItem('migalia_partners');
+      if (savedPartners) setPartners(JSON.parse(savedPartners));
+      else setPartners(DEFAULT_PARTNERS);
+
+      const savedBudget = localStorage.getItem('migalia_budget');
+      if (savedBudget) setBudget(Number(savedBudget));
 
       const savedTasks = localStorage.getItem('migalia_tasks');
       const savedLogbook = localStorage.getItem('migalia_logbook');
@@ -82,6 +92,16 @@ export default function Home() {
   };
 
   // Guardar automáticamente en localStorage ante cualquier cambio
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('migalia_partners', JSON.stringify(partners));
+  }, [partners, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('migalia_budget', budget.toString());
+  }, [budget, isLoaded]);
+
   useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem('migalia_tasks', JSON.stringify(tasks));
@@ -166,7 +186,7 @@ export default function Home() {
     milestones: milestones.length,
   };
 
-  // Si no está autenticado, renderiza la pantalla de bienvenida y login
+  // Si no está autenticado, renderiza la pantalla de login
   if (isLoaded && !currentPartner) {
     return <LoginScreen partners={partners} onLogin={handleLogin} />;
   }
@@ -193,13 +213,20 @@ export default function Home() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           counts={counts}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
         {/* Main Content Area */}
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="text-xs font-semibold text-[#8C6239] hover:text-[#C59B27] bg-[#FFFFFF] border border-[#E6DFD5] px-3 py-1.5 rounded-xl shadow-xs"
+                >
+                  ⚙️ Configurar Socios y Presupuesto
+                </button>
                 <button
                   onClick={handleResetToZero}
                   className="text-[11px] text-[#A39E93] hover:text-[#C84B31] transition-colors"
@@ -212,6 +239,8 @@ export default function Home() {
                 partners={partners}
                 logbook={logbook}
                 milestones={milestones}
+                budget={budget}
+                onOpenSettings={() => setIsSettingsOpen(true)}
                 onSelectTask={(task) => {
                   setSelectedTask(task);
                   setIsModalOpen(true);
@@ -309,6 +338,16 @@ export default function Home() {
         partners={partners}
         onSaveTask={handleSaveTask}
         onDeleteTask={handleDeleteTask}
+      />
+
+      {/* Modal de Configuración de Socios y Presupuesto */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        partners={partners}
+        onSavePartners={setPartners}
+        budget={budget}
+        onSaveBudget={setBudget}
       />
     </div>
   );
