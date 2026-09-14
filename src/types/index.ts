@@ -25,8 +25,13 @@ export interface Task {
   priority: Priority;
   assignedTo: string; // Partner id
   category: TaskCategory;
+  startDate?: string;
   dueDate: string;
   subtasks: Subtask[];
+  estimatedCost?: number;
+  actualCost?: number;
+  isBlocked?: boolean;
+  blockerReason?: string;
   createdAt: string;
 }
 

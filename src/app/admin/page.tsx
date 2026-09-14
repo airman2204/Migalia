@@ -103,7 +103,12 @@ export default function Home() {
               priority: t.priority as any,
               assignedTo: t.assigned_to || '',
               category: t.category as any,
+              startDate: t.start_date || '',
               dueDate: t.due_date || '',
+              estimatedCost: t.estimated_cost ? Number(t.estimated_cost) : undefined,
+              actualCost: t.actual_cost ? Number(t.actual_cost) : undefined,
+              isBlocked: !!t.is_blocked,
+              blockerReason: t.blocker_reason || '',
               subtasks: t.subtasks || [],
               createdAt: t.created_at,
             }))
@@ -197,7 +202,12 @@ export default function Home() {
       priority: taskData.priority,
       assigned_to: taskData.assignedTo || null,
       category: taskData.category,
+      start_date: taskData.startDate || null,
       due_date: taskData.dueDate || null,
+      estimated_cost: taskData.estimatedCost ?? null,
+      actual_cost: taskData.actualCost ?? null,
+      is_blocked: taskData.isBlocked ?? false,
+      blocker_reason: taskData.blockerReason || null,
       subtasks: taskData.subtasks,
     });
   };
@@ -409,6 +419,12 @@ export default function Home() {
           {activeTab === 'milestones' && (
             <MilestonesView
               milestones={milestones}
+              tasks={displayedTasks}
+              partners={partners}
+              onSelectTask={(task) => {
+                setSelectedTask(task);
+                setIsModalOpen(true);
+              }}
               onAddMilestone={handleAddMilestone}
               onUpdateMilestone={handleUpdateMilestone}
               onDeleteMilestone={handleDeleteMilestone}

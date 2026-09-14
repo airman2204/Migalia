@@ -144,6 +144,7 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
                 <th className="px-3 py-3">Responsable</th>
                 <th className="px-3 py-3">Prioridad</th>
                 <th className="px-3 py-3">Estado</th>
+                <th className="px-3 py-3">Costo Real / Estimado</th>
                 <th className="px-3 py-3">Fecha Límite</th>
                 <th className="px-3 py-3 text-right">Subtareas</th>
               </tr>
@@ -151,7 +152,7 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
             <tbody className="divide-y divide-[#F2EFE9]">
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-xs text-[#A39E93]">
+                  <td colSpan={8} className="px-4 py-10 text-center text-xs text-[#A39E93]">
                     No hay actividades registradas en esta vista. Haz clic en <strong>+ Nueva Actividad</strong> para agregar la primera.
                   </td>
                 </tr>
@@ -164,10 +165,24 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
                     <tr
                       key={t.id}
                       onClick={() => onSelectTask(t)}
-                      className="hover:bg-[#FAF8F5] cursor-pointer transition-colors"
+                      className={`hover:bg-[#FAF8F5] cursor-pointer transition-colors ${
+                        t.isBlocked ? 'bg-[#FFFBF5]' : ''
+                      }`}
                     >
-                      <td className="px-4 py-3 font-semibold text-[#221F1D] max-w-xs truncate">
-                        {t.title}
+                      <td className="px-4 py-3 max-w-xs">
+                        <div className="flex items-center gap-2">
+                          {t.isBlocked && (
+                            <span
+                              title={`Bloqueada: ${t.blockerReason || 'Por proveedor/tercero'}`}
+                              className="shrink-0 text-[10px] font-bold bg-[#FFEDD5] text-[#EA580C] border border-[#FED7AA] px-1.5 py-0.5 rounded"
+                            >
+                              ⚠️ Bloqueada
+                            </span>
+                          )}
+                          <span className="font-semibold text-[#221F1D] truncate">
+                            {t.title}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-[#8C6239] font-medium">
                         {t.category}
@@ -191,6 +206,19 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
                           <option value="review">Revisión</option>
                           <option value="done">Terminado</option>
                         </select>
+                      </td>
+                      <td className="px-3 py-3 text-[11px]">
+                        {t.actualCost !== undefined ? (
+                          <span className="font-bold text-[#221F1D]">
+                            ${t.actualCost.toLocaleString('es-MX')}
+                          </span>
+                        ) : t.estimatedCost !== undefined ? (
+                          <span className="text-[#8C6239]">
+                            ~${t.estimatedCost.toLocaleString('es-MX')}
+                          </span>
+                        ) : (
+                          <span className="text-[#A39E93]">-</span>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-[#6E665D]">
                         {t.dueDate}

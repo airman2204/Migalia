@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Task, Partner, LogbookEntry, Milestone } from '@/types';
-import { CheckCircle, Clock, AlertTriangle, TrendingUp, Users } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, TrendingUp, Users, ShieldAlert, DollarSign, ArrowRight } from 'lucide-react';
 
 interface DashboardViewProps {
   tasks: Task[];
@@ -27,6 +27,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const completedTasks = tasks.filter((t) => t.status === 'done').length;
   const inProgressTasks = tasks.filter((t) => t.status === 'in_progress').length;
   const urgentTasks = tasks.filter((t) => t.priority === 'urgent' && t.status !== 'done');
+  const blockedTasks = tasks.filter((t) => t.isBlocked && t.status !== 'done');
+
+  // Cálculos Financieros CAPEX
+  const totalEstimatedCost = tasks.reduce((sum, t) => sum + (t.estimatedCost || 0), 0);
+  const totalActualCost = tasks.reduce((sum, t) => sum + (t.actualCost || 0), 0);
+  const budgetUtilization = budget > 0 ? Math.round((totalActualCost / budget) * 100) : 0;
+  const budgetCommittedRate = budget > 0 ? Math.round((totalEstimatedCost / budget) * 100) : 0;
 
   // El porcentaje de avance calcula exactamente tareas completadas / total de tareas
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -73,12 +80,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="bg-[#FFFFFF] border border-[#E6DFD5] p-4 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between text-[#DC2626] mb-2">
-            <span className="text-xs font-semibold">Atención Urgente</span>
-            <AlertTriangle className="w-4 h-4" />
+          <div className="flex items-center justify-between text-[#EA580C] mb-2">
+            <span className="text-xs font-semibold">Bloqueadas (Terceros)</span>
+            <ShieldAlert className="w-4 h-4" />
           </div>
-          <p className="text-2xl font-bold text-[#221F1D]">{urgentTasks.length}</p>
-          <p className="text-[11px] text-[#6E665D] mt-1">Pendientes de alta prioridad</p>
+          <p className="text-2xl font-bold text-[#EA580C]">{blockedTasks.length}</p>
+          <p className="text-[11px] text-[#6E665D] mt-1">Cuellos de botella externos</p>
         </div>
 
         <div className="bg-[#FFFFFF] border border-[#E6DFD5] p-4 rounded-2xl shadow-xs">
@@ -99,9 +106,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <p className="text-2xl font-bold text-[#221F1D]">
             ${budget.toLocaleString('es-MX')}
           </p>
-          <p className="text-[11px] text-[#6E665D] mt-1">MXN Estimado</p>
+          <p className="text-[11px] text-[#6E665D] mt-1">MXN Techo Financiero</p>
         </div>
       </div>
+
+      {/* Salud Financiera CAPEX (Estimado vs Real) */}
+      <div className="bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F2EFE9] pb-3">
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-[#C59B27]" />
+            <h2 className="text-sm font-bold text-[#221F1D]">Control Financiero & Desglose CAPEX</h2>
+          </div>
+          <span className="text-xs text-[#6E665D]">
+            Pagado Real: <strong className="text-[#221F1D]">${totalActualCost.toLocaleString('es-MX')}</strong> de ${budget.toLocaleString('es-MX')} MXN
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3.5 rounded-2xl">
+            <p className="text-[10px] uppercase font-bold text-[#6E665D]">Costo Comprometido (Estimado)</p>
+            <p className="text-xl font-bold text-[#8C6239] mt-0.5">${totalEstimatedCost.toLocaleString('es-MX')}</p>
+            <p className="text-[10px] text-[#A39E93] mt-1">{budgetCommittedRate}% del presupuesto proyectado</p>
+          </div>
+
+          <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3.5 rounded-2xl">
+            <p className="text-[10px] uppercase font-bold text-[#6E665D]">Costo Real Pagado (Ejecutado)</p>
+            <p className="text-xl font-bold text-[#221F1D] mt-0.5">${totalActualCost.toLocaleString('es-MX')}</p>
+            <p className="text-[10px] text-[#A39E93] mt-1">{budgetUtilization}% del presupuesto desembolsado</p>
+          </div>
+
+          <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3.5 rounded-2xl">
+            <p className="text-[10px] uppercase font-bold text-[#6E665D]">Presupuesto Restante</p>
+            <p className={`text-xl font-bold mt-0.5 ${budget - totalActualCost < 0 ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
+              ${(budget - totalActualCost).toLocaleString('es-MX')}
+            </p>
+            <p className="text-[10px] text-[#A39E93] mt-1">Margen de maniobra disponible</p>
+          </div>
+        </div>
+
+        {/* Barra de Consumo de Presupuesto */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between text-[11px] text-[#6E665D]">
+            <span>Ejecución del Presupuesto Total</span>
+            <span className="font-bold text-[#221F1D]">{budgetUtilization}%</span>
+          </div>
+          <div className="w-full bg-[#EBE7DF] h-2.5 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                budgetUtilization > 90 ? 'bg-[#DC2626]' : budgetUtilization > 65 ? 'bg-[#EA580C]' : 'bg-[#C59B27]'
+              }`}
+              style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Alerta de Cuellos de Botella / Actividades Bloqueadas */}
+      {blockedTasks.length > 0 && (
+        <div className="bg-[#FFF7ED] border border-[#FDBA74] rounded-3xl p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-[#EA580C]" />
+              <h2 className="text-sm font-bold text-[#EA580C]">
+                Cuellos de Botella Críticos ({blockedTasks.length})
+              </h2>
+            </div>
+            <span className="text-[11px] font-semibold text-[#9A3412]">
+              Requieren destrabarse con proveedores
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {blockedTasks.map((task) => (
+              <div
+                key={task.id}
+                onClick={() => onSelectTask(task)}
+                className="bg-[#FFFFFF] border border-[#FED7AA] hover:border-[#EA580C] p-3.5 rounded-2xl cursor-pointer shadow-2xs transition-all space-y-1.5"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#EA580C] bg-[#FFEDD5] px-2 py-0.5 rounded-md">
+                    {task.category}
+                  </span>
+                  <span className="text-[10px] text-[#A39E93]">{task.dueDate}</span>
+                </div>
+                <p className="text-xs font-bold text-[#221F1D] line-clamp-1">{task.title}</p>
+                {task.blockerReason && (
+                  <p className="text-[11px] text-[#9A3412] bg-[#FFF7ED] p-1.5 rounded-lg border border-[#FFEDD5] leading-snug">
+                    Motivo: {task.blockerReason}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Balance Dinámico por Socio */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

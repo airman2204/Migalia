@@ -139,12 +139,19 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                 {getPriorityBadge(task.priority)}
                               </div>
 
-                              <h4 className="text-xs font-semibold text-[#221F1D] leading-snug mb-2 line-clamp-2">
+                              <h4 className="text-xs font-semibold text-[#221F1D] leading-snug mb-1.5 line-clamp-2">
                                 {task.title}
                               </h4>
 
+                              {task.isBlocked && (
+                                <div className="mb-2 bg-[#FFEDD5] border border-[#FED7AA] text-[#EA580C] px-2 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1.5">
+                                  <span>⚠️</span>
+                                  <span className="truncate">{task.blockerReason || 'Bloqueada por tercero'}</span>
+                                </div>
+                              )}
+
                               {task.subtasks.length > 0 && (
-                                <div className="flex items-center gap-1.5 text-[11px] text-[#6E665D] mb-2.5 bg-[#F8F6F0] px-2 py-1 rounded-md">
+                                <div className="flex items-center gap-1.5 text-[11px] text-[#6E665D] mb-2 bg-[#F8F6F0] px-2 py-1 rounded-md">
                                   <CheckSquare className="w-3 h-3 text-[#8C6239]" />
                                   <span>
                                     {completedSubtasks}/{task.subtasks.length} subtareas
@@ -153,9 +160,18 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                               )}
 
                               <div className="flex items-center justify-between pt-2 border-t border-[#F2EFE9] text-[11px]">
-                                <div className="flex items-center gap-1 text-[#6E665D]">
+                                <div className="flex items-center gap-1.5 text-[#6E665D]">
                                   <Clock className="w-3 h-3 text-[#A39E93]" />
                                   <span>{task.dueDate.substring(5)}</span>
+                                  {task.actualCost !== undefined ? (
+                                    <span className="font-bold text-[#221F1D] text-[10px]">
+                                      ${task.actualCost.toLocaleString('es-MX')}
+                                    </span>
+                                  ) : task.estimatedCost !== undefined ? (
+                                    <span className="text-[#8C6239] text-[10px]">
+                                      ~${task.estimatedCost.toLocaleString('es-MX')}
+                                    </span>
+                                  ) : null}
                                 </div>
 
                                 {partner && (

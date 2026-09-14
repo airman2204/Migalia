@@ -92,3 +92,10 @@ CREATE POLICY "Permitir todo a usuarios autenticados en tasks" ON public.tasks F
 CREATE POLICY "Permitir todo a usuarios autenticados en subtasks" ON public.subtasks FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Permitir todo a usuarios autenticados en logbook" ON public.logbook FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Permitir todo a usuarios autenticados en milestones" ON public.milestones FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 6. Nuevos campos de Control Financiero CAPEX y Bloqueadores Críticos (Etapa 1.1)
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS start_date DATE;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(12, 2) DEFAULT NULL;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS actual_cost NUMERIC(12, 2) DEFAULT NULL;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS blocker_reason TEXT DEFAULT NULL;

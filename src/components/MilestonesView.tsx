@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Milestone } from '@/types';
-import { Calendar, Plus, Trash2, Edit3, CheckCircle2, Clock } from 'lucide-react';
+import { Milestone, Task, Partner } from '@/types';
+import { Calendar, Plus, Trash2, Edit3, CheckCircle2, Clock, Layers } from 'lucide-react';
+import { GanttView } from './GanttView';
 
 interface MilestonesViewProps {
   milestones: Milestone[];
+  tasks?: Task[];
+  partners?: Partner[];
+  onSelectTask?: (task: Task) => void;
   onAddMilestone: (milestone: Omit<Milestone, 'id'>) => void;
   onUpdateMilestone: (milestone: Milestone) => void;
   onDeleteMilestone: (id: string) => void;
@@ -13,10 +17,14 @@ interface MilestonesViewProps {
 
 export const MilestonesView: React.FC<MilestonesViewProps> = ({
   milestones,
+  tasks = [],
+  partners = [],
+  onSelectTask = () => {},
   onAddMilestone,
   onUpdateMilestone,
   onDeleteMilestone,
 }) => {
+  const [viewMode, setViewMode] = useState<'timeline' | 'gantt'>('timeline');
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -81,24 +89,58 @@ export const MilestonesView: React.FC<MilestonesViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#221F1D] tracking-tight">
-            Cronograma Visual / Timeline de Apertura
+            Cronograma Visual & Hitos de Apertura
           </h2>
           <p className="text-xs text-[#6E665D]">
-            Línea temporal interactiva de hitos y metas clave para la apertura en Puebla.
+            Línea temporal interactiva y proyección semanal de actividades y metas para Puebla.
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="flex items-center gap-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-semibold px-4 py-2 rounded-xl shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-3.5 h-3.5 text-[#C59B27]" />
-          <span>Nuevo Hito</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* View Mode Switcher */}
+          <div className="flex items-center bg-[#EBE7DF] p-1 rounded-xl border border-[#DDD5C7] text-xs font-semibold">
+            <button
+              onClick={() => setViewMode('timeline')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                viewMode === 'timeline'
+                  ? 'bg-[#221F1D] text-[#F8F6F0] shadow-2xs'
+                  : 'text-[#6E665D] hover:text-[#221F1D]'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Hitos Clave</span>
+            </button>
+            <button
+              onClick={() => setViewMode('gantt')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                viewMode === 'gantt'
+                  ? 'bg-[#221F1D] text-[#F8F6F0] shadow-2xs'
+                  : 'text-[#6E665D] hover:text-[#221F1D]'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-[#C59B27]" />
+              <span>Vista Gantt</span>
+            </button>
+          </div>
+
+          <button
+            onClick={handleOpenAdd}
+            className="flex items-center gap-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-semibold px-4 py-2 rounded-xl shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#C59B27]" />
+            <span>Nuevo Hito</span>
+          </button>
+        </div>
       </div>
 
-      {/* Visual Horizontal/Vertical Timeline */}
-      {sortedMilestones.length === 0 ? (
+      {viewMode === 'gantt' ? (
+        <GanttView
+          tasks={tasks}
+          milestones={milestones}
+          partners={partners}
+          onSelectTask={onSelectTask}
+        />
+      ) : sortedMilestones.length === 0 ? (
         <div className="bg-[#FFFFFF] border border-dashed border-[#DDD5C7] rounded-3xl p-12 text-center">
           <Calendar className="w-8 h-8 text-[#A39E93] mx-auto mb-2" />
           <p className="text-xs font-bold text-[#221F1D]">No hay hitos definidos todavía</p>

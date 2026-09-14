@@ -38,7 +38,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [priority, setPriority] = useState<Priority>(task?.priority || 'medium');
   const [assignedTo, setAssignedTo] = useState(task?.assignedTo || partners[0]?.id || '');
   const [category, setCategory] = useState<TaskCategory>(task?.category || 'Obra & Interiorismo');
+  const [startDate, setStartDate] = useState(task?.startDate || new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(task?.dueDate || new Date().toISOString().split('T')[0]);
+  const [estimatedCost, setEstimatedCost] = useState<string>(
+    task?.estimatedCost !== undefined ? String(task.estimatedCost) : ''
+  );
+  const [actualCost, setActualCost] = useState<string>(
+    task?.actualCost !== undefined ? String(task.actualCost) : ''
+  );
+  const [isBlocked, setIsBlocked] = useState<boolean>(task?.isBlocked || false);
+  const [blockerReason, setBlockerReason] = useState<string>(task?.blockerReason || '');
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
 
@@ -73,7 +82,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       priority,
       assignedTo,
       category,
+      startDate: startDate || undefined,
       dueDate,
+      estimatedCost: estimatedCost ? parseFloat(estimatedCost) : undefined,
+      actualCost: actualCost ? parseFloat(actualCost) : undefined,
+      isBlocked,
+      blockerReason: isBlocked ? blockerReason : undefined,
       subtasks,
       createdAt: task?.createdAt || new Date().toISOString().split('T')[0],
     });
@@ -97,7 +111,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[85vh] overflow-y-auto">
           <div>
             <label className="block text-xs font-semibold text-[#221F1D] mb-1">
               Título de la Actividad
@@ -148,7 +162,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-[#6E665D] mb-1">
                 Prioridad
@@ -184,6 +198,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-[11px] font-semibold text-[#6E665D] mb-1">
+                Fecha Inicio
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl px-2.5 py-2 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-[#6E665D] mb-1">
                 Fecha Límite
               </label>
               <input
@@ -193,6 +219,78 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 className="w-full text-xs bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl px-2.5 py-2 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
               />
             </div>
+          </div>
+
+          {/* Sección Financiera CAPEX */}
+          <div className="bg-[#FAF8F5] border border-[#E6DFD5] p-3.5 rounded-2xl space-y-2">
+            <p className="text-[11px] font-bold text-[#8C6239] uppercase tracking-wider flex items-center gap-1.5">
+              <span>💰 Presupuesto & Costo (MXN)</span>
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-medium text-[#6E665D] mb-1">
+                  Costo Estimado (Cotización)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-xs text-[#A39E93]">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="0.00"
+                    value={estimatedCost}
+                    onChange={(e) => setEstimatedCost(e.target.value)}
+                    className="w-full text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-xl pl-6 pr-2.5 py-1.5 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-[#6E665D] mb-1">
+                  Costo Real Pagado
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-xs text-[#A39E93]">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="0.00"
+                    value={actualCost}
+                    onChange={(e) => setActualCost(e.target.value)}
+                    className="w-full text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-xl pl-6 pr-2.5 py-1.5 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Marcador de Bloqueador / Dependencia Crítica */}
+          <div className={`p-3.5 rounded-2xl border transition-all ${
+            isBlocked ? 'bg-[#FFF7ED] border-[#FDBA74]' : 'bg-[#FAF8F5] border-[#E6DFD5]'
+          }`}>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isBlocked}
+                onChange={(e) => setIsBlocked(e.target.checked)}
+                className="rounded text-[#EA580C] focus:ring-0 w-4 h-4"
+              />
+              <span className={`text-xs font-bold ${isBlocked ? 'text-[#EA580C]' : 'text-[#221F1D]'}`}>
+                ⚠️ Actividad bloqueada por un tercero o proveedor externo
+              </span>
+            </label>
+
+            {isBlocked && (
+              <div className="mt-2.5">
+                <input
+                  type="text"
+                  value={blockerReason}
+                  onChange={(e) => setBlockerReason(e.target.value)}
+                  placeholder="¿Cuál es el cuello de botella? (Ej. Esperando transformador de CFE)"
+                  className="w-full text-xs bg-[#FFFFFF] border border-[#FDBA74] rounded-xl px-3 py-1.5 text-[#221F1D] placeholder-[#A39E93] focus:outline-none"
+                />
+              </div>
+            )}
           </div>
 
           <div>
