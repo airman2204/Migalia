@@ -304,48 +304,81 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
             </div>
 
             {/* Contenedor del Meet */}
-            <div className="flex-1 bg-stone-900 rounded-2xl overflow-hidden border border-stone-300 flex items-center justify-center relative shadow-inner">
-              {isMeetActive ? (
-                meetingUrl.includes('meet.google.com') ? (
-                  <div className="text-center p-6 text-white">
-                    <Video className="w-12 h-12 text-blue-400 mx-auto mb-3" />
-                    <h4 className="font-bold text-base mb-1">Sala de Google Meet Preparada</h4>
-                    <p className="text-xs text-stone-300 mb-4 max-w-sm mx-auto">
-                      Por políticas de seguridad de Google, Google Meet se abre en su pestaña optimizada mientras tomas la minuta aquí al lado.
-                    </p>
+            <div className="flex-1 bg-stone-900 rounded-2xl overflow-hidden border border-stone-300 flex items-center justify-center relative shadow-inner p-4">
+              {meetingUrl ? (
+                <div className="text-center p-6 text-white max-w-sm">
+                  <div className="p-3 bg-blue-500/20 text-blue-400 rounded-2xl w-fit mx-auto mb-3">
+                    <Video className="w-8 h-8" />
+                  </div>
+                  <h4 className="font-bold text-sm mb-1">Enlace de Videollamada Conectado</h4>
+                  <p className="text-xs text-stone-400 mb-4 truncate">{meetingUrl}</p>
+                  <a
+                    href={meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs shadow-md transition"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Entrar a la Videollamada</span>
+                  </a>
+                </div>
+              ) : isMeetActive ? (
+                <div className="text-center p-6 text-white max-w-sm">
+                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mx-auto mb-3 animate-pulse">
+                    <Video className="w-8 h-8" />
+                  </div>
+                  <h4 className="font-bold text-base mb-1">Sala Segura de Migalia Activa</h4>
+                  <p className="text-xs text-stone-300 mb-4 leading-relaxed">
+                    Abre la sala en una pestaña optimizada con video HD y audio sin restricciones de navegador mientras levantas la minuta aquí al lado.
+                  </p>
+                  <div className="flex flex-col gap-2">
                     <a
-                      href={meetingUrl}
+                      href={`https://meet.jit.si/Migalia_Boutique_Puebla_${encodeURIComponent(sessionTitle.replace(/[^a-zA-Z0-9]/g, ''))}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs shadow-md"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs shadow-md transition"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      <span>Abrir Google Meet en Pestaña Activa</span>
+                      <span>Abrir Sala de Migalia en Pestaña</span>
+                    </a>
+                    <a
+                      href="https://meet.google.com/new"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 font-medium rounded-xl text-xs transition border border-stone-700"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                      <span>O Iniciar con Google Meet</span>
                     </a>
                   </div>
-                ) : (
-                  <iframe
-                    src={`https://meet.jit.si/Migalia_Boutique_${encodeURIComponent(sessionTitle.replace(/\s+/g, '_'))}#config.startWithAudioMuted=false&config.prejoinPageEnabled=false`}
-                    className="w-full h-full border-0"
-                    allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                    title="Migalia Meet Room"
-                  />
-                )
+                </div>
               ) : (
-                <div className="text-center p-6 text-white">
+                <div className="text-center p-6 text-white max-w-xs">
                   <div className="p-4 bg-stone-800 text-amber-400 rounded-2xl w-fit mx-auto mb-3">
                     <Video className="w-8 h-8" />
                   </div>
                   <h4 className="font-bold text-sm text-stone-100">Sala de Conexión de Migalia</h4>
-                  <p className="text-xs text-stone-400 mt-1 max-w-xs mx-auto">
-                    Conéctate en video con tus socios mientras el asistente transcribe y asienta los acuerdos en vivo.
+                  <p className="text-xs text-stone-400 mt-1.5 leading-relaxed">
+                    Conéctate en video con tus socios mientras el asistente transcribe y asienta los acuerdos por voz.
                   </p>
-                  <button
-                    onClick={() => setIsMeetActive(true)}
-                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-sm transition"
-                  >
-                    <span>Iniciar Sala Segura</span>
-                  </button>
+                  <div className="mt-4 flex flex-col gap-2">
+                    <button
+                      onClick={() => setIsMeetActive(true)}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-sm transition"
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>Iniciar Sala de Video</span>
+                    </button>
+                    <a
+                      href="https://meet.google.com/new"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-medium border border-stone-700 transition"
+                    >
+                      <ExternalLink className="w-3 h-3 text-blue-400" />
+                      <span>Crear Google Meet</span>
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
