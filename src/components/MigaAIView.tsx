@@ -173,17 +173,31 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
       {/* Header Principal */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-stone-200 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-700 text-white rounded-2xl shadow-md shadow-amber-500/20">
-            <Sparkles className="w-6 h-6" />
+          <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#221F1D] via-[#34302C] to-[#1A1816] flex items-center justify-center border border-amber-500/40 shadow-md shadow-amber-900/10 shrink-0 overflow-hidden">
+            <div className="absolute inset-0 bg-radial from-amber-400/20 to-transparent opacity-80" />
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6 text-amber-400 relative z-10 drop-shadow-[0_2px_4px_rgba(197,155,39,0.5)]"
+            >
+              <path
+                d="M4 19L7 8L12 14L17 8L20 19"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="12" cy="5" r="2.2" fill="#F59E0B" />
+              <circle cx="7" cy="8" r="1.3" fill="#FBBF24" />
+              <circle cx="17" cy="8" r="1.3" fill="#FBBF24" />
+            </svg>
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-serif font-bold text-stone-900 tracking-tight">
                 Miga AI
               </h1>
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold rounded-full uppercase tracking-wider">
-                Copiloto Inteligente
-              </span>
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
               Conectado en tiempo real a las {tasks.length} actividades, {recipes.length} recetas oficiales, bitácora y presupuesto del proyecto.

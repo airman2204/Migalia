@@ -96,19 +96,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Botón Miga AI - Justo arriba de configuración */}
         <button
           onClick={() => onTabChange('miga_ai')}
-          className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
+          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border shadow-xs ${
             activeTab === 'miga_ai'
-              ? 'bg-gradient-to-r from-[#221F1D] to-[#34302C] text-amber-400 border-amber-500/40 shadow-amber-900/10'
-              : 'bg-white hover:bg-stone-50 text-stone-800 border-amber-300/60 hover:border-amber-400'
+              ? 'bg-[#221F1D] text-amber-400 border-amber-500/40 shadow-sm'
+              : 'bg-white hover:bg-stone-50 text-[#221F1D] border-amber-200/70 hover:border-amber-400'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <span className="p-1.5 bg-amber-500/10 text-amber-600 rounded-lg">
-              <Sparkles className="w-4 h-4" />
-            </span>
+          <div className="flex items-center gap-3">
+            {/* Logo Propio Miga AI: Isotipo de Corona de Trigo / Estrella Neuronal */}
+            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-[#221F1D] via-[#34302C] to-[#1A1816] flex items-center justify-center border border-amber-500/40 shadow-xs shrink-0 overflow-hidden group">
+              <div className="absolute inset-0 bg-radial from-amber-400/20 to-transparent opacity-75" />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4 text-amber-400 relative z-10 drop-shadow-[0_1px_2px_rgba(197,155,39,0.5)]"
+              >
+                {/* Isotipo: Nódulo M con destellos de IA y espiga de trigo */}
+                <path
+                  d="M4 19L7 8L12 14L17 8L20 19"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="12" cy="5" r="2" fill="#F59E0B" />
+                <circle cx="7" cy="8" r="1.2" fill="#FBBF24" />
+                <circle cx="17" cy="8" r="1.2" fill="#FBBF24" />
+              </svg>
+            </div>
+
             <div className="text-left">
-              <span className="font-serif font-bold text-sm leading-tight block">Miga AI</span>
-              <p className="text-[10px] text-stone-400 font-normal">Reportes & Marketing</p>
+              <span className="font-serif font-bold text-sm leading-none tracking-tight block">
+                Miga AI
+              </span>
             </div>
           </div>
         </button>
