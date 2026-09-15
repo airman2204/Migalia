@@ -91,8 +91,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Sección Inferior: Configuración */}
+      {/* Sección Inferior: Miga AI y Configuración */}
       <div className="mt-8 space-y-2">
+        {/* Botón Miga AI - Justo arriba de configuración */}
+        <button
+          onClick={() => onTabChange('miga_ai')}
+          className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
+            activeTab === 'miga_ai'
+              ? 'bg-gradient-to-r from-[#221F1D] to-[#34302C] text-amber-400 border-amber-500/40 shadow-amber-900/10'
+              : 'bg-white hover:bg-stone-50 text-stone-800 border-amber-300/60 hover:border-amber-400'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 bg-amber-500/10 text-amber-600 rounded-lg">
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <div className="text-left">
+              <span className="font-serif font-bold text-sm leading-tight block">Miga AI</span>
+              <p className="text-[10px] text-stone-400 font-normal">Reportes & Marketing</p>
+            </div>
+          </div>
+        </button>
+
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
