@@ -1,8 +1,7 @@
-'use client';
-
 import React, { useState } from 'react';
 import { LogbookEntry, Partner } from '@/types';
-import { BookOpen, Plus, Calendar, User, Tag } from 'lucide-react';
+import { BookOpen, Plus, Calendar, User, Tag, Video } from 'lucide-react';
+import { MeetingRoomModal } from './MeetingRoomModal';
 
 interface LogbookViewProps {
   entries: LogbookEntry[];
@@ -16,6 +15,7 @@ export const LogbookView: React.FC<LogbookViewProps> = ({
   onAddEntry,
 }) => {
   const [showForm, setShowForm] = useState(false);
+  const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<LogbookEntry['category']>('Reunión & Acuerdos');
@@ -65,13 +65,22 @@ export const LogbookView: React.FC<LogbookViewProps> = ({
             Registro de acuerdos de inversión, recetas, decisiones de obra y temas clave.
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-xs"
-        >
-          <Plus className="w-3.5 h-3.5 text-[#C59B27]" />
-          <span>{showForm ? 'Cerrar Formulario' : 'Asentar Minuta / Acuerdo'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsMeetingModalOpen(true)}
+            className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm"
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span>Iniciar Sesión / Meet con Asistente</span>
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#C59B27]" />
+            <span>{showForm ? 'Cerrar' : '+ Minuta Manual'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Formulario nuevo acuerdo */}
@@ -199,6 +208,16 @@ export const LogbookView: React.FC<LogbookViewProps> = ({
           </div>
         ))}
       </div>
+
+      {/* Modal de Sesión Meet con Dictado por Voz & Despacho de Correo */}
+      <MeetingRoomModal
+        isOpen={isMeetingModalOpen}
+        onClose={() => setIsMeetingModalOpen(false)}
+        partners={partners}
+        onSaveMinuta={(entry) => {
+          onAddEntry(entry);
+        }}
+      />
     </div>
   );
 };
