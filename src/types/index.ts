@@ -198,3 +198,17 @@ export interface MigaliaDocument {
   updatedAt: string;
   isPinned?: boolean;
 }
+
+/**
+ * Mensaje individual en el Chat Interno entre Socios de Migalia.
+ */
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+  isMeetingInvite?: boolean;
+  meetingTitle?: string;
+}
+

@@ -17,6 +17,8 @@ import { RecipesView } from '@/components/RecipesView';
 import { RecipeModal } from '@/components/RecipeModal';
 import { DocumentsView } from '@/components/DocumentsView';
 import { MigaAIView } from '@/components/MigaAIView';
+import { PartnersChatDrawer } from '@/components/PartnersChatDrawer';
+import { MeetingRoomModal } from '@/components/MeetingRoomModal';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -49,6 +51,8 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isGlobalMeetingOpen, setIsGlobalMeetingOpen] = useState(false);
   const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
 
   // Navegación y Filtros
@@ -457,6 +461,7 @@ export default function Home() {
           partners={partners}
           currentPartner={currentPartner}
           onLogout={handleLogout}
+          onOpenChat={() => setIsChatOpen(true)}
         />
       </div>
 
@@ -636,6 +641,26 @@ export default function Home() {
         onSavePartners={handleSavePartners}
         budget={budget}
         onSaveBudget={handleSaveBudget}
+      />
+
+      {/* Drawer de Chat Interno entre Socios */}
+      <PartnersChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        currentPartner={currentPartner}
+        partners={partners}
+        onLaunchMeeting={() => {
+          setIsChatOpen(false);
+          setIsGlobalMeetingOpen(true);
+        }}
+      />
+
+      {/* Sala de Sesión / Meet Global */}
+      <MeetingRoomModal
+        isOpen={isGlobalMeetingOpen}
+        onClose={() => setIsGlobalMeetingOpen(false)}
+        partners={partners}
+        onSaveMinuta={handleAddLogbookEntry}
       />
     </div>
   );

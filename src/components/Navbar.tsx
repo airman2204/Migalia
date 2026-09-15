@@ -1,8 +1,6 @@
-'use client';
-
 import React from 'react';
 import { Partner } from '@/types';
-import { User, Users, Plus, LogOut } from 'lucide-react';
+import { User, Users, Plus, LogOut, MessageSquare } from 'lucide-react';
 
 interface NavbarProps {
   currentFilter: 'all' | string;
@@ -10,6 +8,7 @@ interface NavbarProps {
   partners: Partner[];
   currentPartner: Partner | null;
   onLogout: () => void;
+  onOpenChat?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   partners,
   currentPartner,
   onLogout,
+  onOpenChat,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/90 backdrop-blur-md border-b border-[#E6DFD5] px-4 lg:px-8 py-3.5 transition-all">
@@ -69,8 +69,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {onOpenChat && (
+            <button
+              onClick={onOpenChat}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] rounded-full text-xs font-semibold transition shadow-xs"
+              title="Abrir Chat Interno de Socios"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-[#C59B27]" />
+              <span className="hidden sm:inline">Chat Socios</span>
+            </button>
+          )}
+
           {/* User Profile / Logout */}
-          <div className="flex items-center gap-2 pl-2">
+          <div className="flex items-center gap-2 pl-1">
             <div
               title={`Sesión iniciada como ${currentPartner?.name || 'Socio'}`}
               className="w-8 h-8 rounded-full bg-[#EBE7DF] border border-[#DDD5C7] flex items-center justify-center text-[#221F1D] font-bold text-xs"
