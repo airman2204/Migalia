@@ -607,8 +607,8 @@ export default function Home() {
       </div>
 
       <div className="flex-1 flex flex-col md:flex-row print:block">
-        {/* Sidebar */}
-        <div className="print:hidden shrink-0">
+        {/* Sidebar Sticky */}
+        <div className="print:hidden shrink-0 md:sticky md:top-[61px] md:h-[calc(100vh-61px)] z-30">
           <Sidebar
             activeTab={activeTab}
             onTabChange={setActiveTab}

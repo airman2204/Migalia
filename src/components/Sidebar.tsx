@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-full md:w-64 bg-[#F2EFE9] border-r border-[#E6DFD5] p-4 flex flex-col justify-between shrink-0">
+    <aside className="w-full md:w-64 h-full bg-[#F2EFE9] border-r border-[#E6DFD5] p-4 flex flex-col justify-between shrink-0 overflow-y-auto">
       <div>
         <div className="mb-4 px-2">
           <p className="text-[10px] font-bold tracking-wider uppercase text-[#6E665D]">
