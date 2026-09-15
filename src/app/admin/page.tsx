@@ -240,38 +240,57 @@ export default function Home() {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const onlineIds = new Set<string>();
+        const onlineIdentifiers = new Set<string>();
 
         Object.values(state).forEach((presences: any) => {
           if (Array.isArray(presences)) {
             presences.forEach((p) => {
-              if (p.partnerId) onlineIds.add(p.partnerId);
+              if (p.partnerId) onlineIdentifiers.add(p.partnerId.toLowerCase());
+              if (p.email) onlineIdentifiers.add(p.email.toLowerCase());
             });
           }
         });
 
         // Actualizar socios con su estado isOnline
         setPartners((prev) =>
-          prev.map((p) => ({
-            ...p,
-            isOnline: onlineIds.has(p.id) || p.id === currentPartner.id,
-          }))
+          prev.map((p) => {
+            const isMe =
+              p.id === currentPartner.id ||
+              Boolean(p.email && currentPartner.email && p.email.toLowerCase() === currentPartner.email.toLowerCase());
+
+            const isOnlineInSupabase =
+              onlineIdentifiers.has(p.id.toLowerCase()) ||
+              Boolean(p.email && onlineIdentifiers.has(p.email.toLowerCase()));
+
+            return {
+              ...p,
+              isOnline: Boolean(isMe || isOnlineInSupabase),
+            };
+          })
         );
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        const joinedId = key.toLowerCase();
         setPartners((prev) =>
-          prev.map((p) => (p.id === key ? { ...p, isOnline: true } : p))
+          prev.map((p) => (p.id.toLowerCase() === joinedId ? { ...p, isOnline: true } : p))
         );
       })
       .on('presence', { event: 'leave' }, ({ key }) => {
+        const leftId = key.toLowerCase();
         setPartners((prev) =>
-          prev.map((p) => (p.id === key ? { ...p, isOnline: false } : p))
+          prev.map((p) => {
+            if (p.id.toLowerCase() === leftId && p.id !== currentPartner.id) {
+              return { ...p, isOnline: false };
+            }
+            return p;
+          })
         );
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({
             partnerId: currentPartner.id,
+            email: currentPartner.email,
             partnerName: currentPartner.name,
             onlineAt: new Date().toISOString(),
           });

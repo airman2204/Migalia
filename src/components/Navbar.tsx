@@ -56,7 +56,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {partners.map((partner) => {
-            const isOnline = partner.isOnline ?? (partner.id === currentPartner?.id);
+            // Un socio está en línea si Supabase Presence lo marca true O si coincide con el usuario actualmente logueado
+            const isCurrent =
+              Boolean(currentPartner) &&
+              (partner.id === currentPartner?.id ||
+                (partner.email && currentPartner?.email && partner.email.toLowerCase() === currentPartner.email.toLowerCase()) ||
+                (partner.name && currentPartner?.name && partner.name.toLowerCase().includes(currentPartner.name.toLowerCase())));
+
+            const isOnline = partner.isOnline || isCurrent;
             return (
               <button
                 key={partner.id}
@@ -120,10 +127,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* User Profile / Logout */}
           <div className="flex items-center gap-2 pl-1">
             <div
-              title={`Sesión iniciada como ${currentPartner?.name || 'Socio'}`}
-              className="w-8 h-8 rounded-full bg-[#EBE7DF] border border-[#DDD5C7] flex items-center justify-center text-[#221F1D] font-bold text-xs"
+              title={`Sesión iniciada como ${currentPartner?.name || 'Socio'} (En línea)`}
+              className="relative w-8 h-8 rounded-full bg-[#EBE7DF] border border-[#DDD5C7] flex items-center justify-center text-[#221F1D] font-bold text-xs"
             >
-              {currentPartner?.shortName?.charAt(currentPartner.shortName.length - 1) || 'M'}
+              {currentPartner?.shortName?.charAt(0) || currentPartner?.name?.charAt(0) || 'M'}
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
             </div>
             <button
               onClick={onLogout}
