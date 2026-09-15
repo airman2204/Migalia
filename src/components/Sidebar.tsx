@@ -3,7 +3,17 @@
 import React from 'react';
 import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files, Sparkles } from 'lucide-react';
 
-export type ActiveTab = 'dashboard' | 'tasks' | 'kanban' | 'recipes' | 'documents' | 'logbook' | 'milestones' | 'miga_ai';
+export type ActiveTab =
+  | 'dashboard'
+  | 'tasks'
+  | 'kanban'
+  | 'recipes'
+  | 'documents'
+  | 'logbook'
+  | 'milestones'
+  | 'calendar'
+  | 'calls'
+  | 'miga_ai';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -32,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'kanban', label: 'Tablero Kanban', icon: <Columns3 className="w-4 h-4" /> },
     { id: 'recipes', label: 'Recetario & Costeo', icon: <ChefHat className="w-4 h-4" />, badge: counts.recipes },
     { id: 'documents', label: 'Documentos & Archivos', icon: <Files className="w-4 h-4" />, badge: counts.documents },
+    { id: 'calendar', label: 'Calendario de Sesiones', icon: <CalendarRange className="w-4 h-4" /> },
     { id: 'logbook', label: 'Bitácora & Minutas', icon: <BookOpen className="w-4 h-4" />, badge: counts.logbook },
     { id: 'milestones', label: 'Hitos & Cronograma', icon: <CalendarRange className="w-4 h-4" />, badge: counts.milestones },
   ];

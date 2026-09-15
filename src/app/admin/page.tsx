@@ -656,6 +656,112 @@ export default function Home() {
             />
           )}
 
+          {activeTab === 'calendar' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
+                <div>
+                  <h2 className="text-xl font-bold font-serif text-[#221F1D] flex items-center gap-2">
+                    <span>Calendario & Sesiones de Socios</span>
+                    <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      Ecosistema Nativo
+                    </span>
+                  </h2>
+                  <p className="text-xs text-stone-500 mt-1">
+                    Agenda reuniones entre Mario y Susy con transcripción automática de Miga AI y envío de minutas por correo.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setActiveMeetingData({ title: 'Sesión Rápida Migalia' });
+                      setIsGlobalMeetingOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#221F1D] text-amber-400 hover:bg-stone-800 transition-all shadow-xs"
+                  >
+                    Iniciar Sesión Inmediata
+                  </button>
+                  <button
+                    onClick={() => setIsCalendarOpen(true)}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-stone-900 transition-all shadow-xs"
+                  >
+                    + Agendar Nueva Sesión
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista de Próximas Sesiones */}
+              <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-stone-800 uppercase tracking-wider">
+                    Sesiones Programadas ({meetings.length})
+                  </h3>
+                </div>
+
+                {meetings.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-stone-200 rounded-xl bg-stone-50/50">
+                    <p className="text-xs font-medium text-stone-600">No hay reuniones agendadas próximas.</p>
+                    <p className="text-[11px] text-stone-400 mt-1">Agenda una sesión de acuerdos o inicia una llamada directa con Miga AI.</p>
+                    <button
+                      onClick={() => setIsCalendarOpen(true)}
+                      className="mt-4 px-4 py-2 bg-stone-900 text-amber-400 text-xs font-semibold rounded-xl hover:bg-stone-800 transition-all"
+                    >
+                      Agendar Primera Sesión
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {meetings.map((m) => (
+                      <div
+                        key={m.id}
+                        className="p-4 rounded-xl border border-stone-200 bg-stone-50/60 hover:bg-stone-50 transition-all flex flex-col justify-between gap-3"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-sm font-bold text-stone-900">{m.title}</h4>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                              {m.status === 'scheduled' ? 'Programada' : m.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-stone-500 mt-1 flex items-center gap-3">
+                            <span>📅 {m.date}</span>
+                            <span>⏰ {m.time} hrs</span>
+                          </p>
+                          {m.topics && (
+                            <p className="text-xs text-stone-600 mt-2 bg-white p-2.5 rounded-lg border border-stone-150 line-clamp-2">
+                              {m.topics}
+                            </p>
+                          )}
+                          <p className="text-[11px] text-stone-400 mt-2">
+                            Participantes: <strong className="text-stone-600">{m.attendees}</strong>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-3 border-t border-stone-200">
+                          <button
+                            onClick={() => handleDeleteMeeting(m.id)}
+                            className="text-stone-400 hover:text-red-600 text-xs transition-colors"
+                          >
+                            Eliminar
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveMeetingData(m);
+                              setIsGlobalMeetingOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-amber-400 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 shadow-xs"
+                          >
+                            <span>Entrar a la Sala</span>
+                            <span>&rarr;</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'miga_ai' && (
             <MigaAIView
               tasks={tasks}
