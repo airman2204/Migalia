@@ -41,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'tasks', label: 'Lista de Actividades', icon: <FolderKanban className="w-4 h-4" />, badge: counts.total },
     { id: 'kanban', label: 'Tablero Kanban', icon: <Columns3 className="w-4 h-4" /> },
     { id: 'recipes', label: 'Recetario & Costeo', icon: <ChefHat className="w-4 h-4" />, badge: counts.recipes },
-    { id: 'documents', label: 'Google Sheets', icon: <FileSpreadsheet className="w-4 h-4 text-[#0F9D58]" />, badge: counts.documents },
+    { id: 'documents', label: 'Google Workspace & Drive', icon: <FileSpreadsheet className="w-4 h-4 text-[#0F9D58]" />, badge: counts.documents },
     { id: 'logbook', label: 'Bitácora & Minutas', icon: <BookOpen className="w-4 h-4" />, badge: counts.logbook },
     { id: 'milestones', label: 'Hitos & Cronograma', icon: <CalendarRange className="w-4 h-4" />, badge: counts.milestones },
   ];

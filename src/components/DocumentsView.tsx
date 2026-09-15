@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MigaliaDocument, DocumentFolder } from '@/types';
+import { MigaliaDocument, DocumentFolder, DocumentType } from '@/types';
 import {
   FileSpreadsheet,
+  FileText,
+  FolderOpen,
   Plus,
   Search,
   Folder,
@@ -22,6 +24,8 @@ import {
   AlertCircle,
   Pin,
   HelpCircle,
+  HardDrive,
+  Eye,
 } from 'lucide-react';
 
 interface DocumentsViewProps {
@@ -39,36 +43,46 @@ const FOLDERS: DocumentFolder[] = [
   'General',
 ];
 
-/**
- * Vista de Hojas de Cálculo & Modelos en Google Sheets.
- * Diseñada para ser directa y sin complicaciones:
- * 1. Agregar el título del modelo / hoja.
- * 2. Pegar el enlace de Google Sheets (o abrir sheets.new en 1 clic).
- * 3. Consultar la hoja embebida o abrirla en Google Drive.
- */
+export const MIGALIA_DRIVE_FOLDER_ID = '1al1p0uWP2Lwc7Z1pvgKGyJwoHWlNiViO';
+export const MIGALIA_DRIVE_URL = `https://drive.google.com/drive/u/0/folders/${MIGALIA_DRIVE_FOLDER_ID}`;
+// URL embebida oficial de Google Drive para visualización de carpetas en iframe
+export const MIGALIA_DRIVE_EMBED_URL = `https://drive.google.com/embeddedfolderview?id=${MIGALIA_DRIVE_FOLDER_ID}#list`;
+
 export const DocumentsView: React.FC<DocumentsViewProps> = ({
   documents,
   currentPartnerName,
   onSaveDocument,
   onDeleteDocument,
 }) => {
+  // Pestaña activa principal: 'sheets' (Hojas de cálculo) | 'docs' (Documentos) | 'drive' (Explorador Google Drive)
+  const [activeMainTab, setActiveMainTab] = useState<'all' | 'sheets' | 'docs' | 'drive'>('all');
   const [selectedFolder, setSelectedFolder] = useState<'all' | DocumentFolder>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDoc, setActiveDoc] = useState<MigaliaDocument | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Campos de formulario para agregar / editar hoja
-  const [sheetTitle, setSheetTitle] = useState('');
-  const [sheetFolder, setSheetFolder] = useState<DocumentFolder>('Finanzas & Inversión');
-  const [sheetUrl, setSheetUrl] = useState('');
+  // Formulario simple: Título, Tipo (Sheets / Docs), Carpeta y URL
+  const [itemTitle, setItemTitle] = useState('');
+  const [itemType, setItemType] = useState<'google_sheet' | 'google_doc'>('google_sheet');
+  const [itemFolder, setItemFolder] = useState<DocumentFolder>('Finanzas & Inversión');
+  const [itemUrl, setItemUrl] = useState('');
 
-  // Filtrado y ordenamiento de hojas (fijadas arriba)
-  const filteredSheets = useMemo(() => {
+  // Filtrado reactivo por tipo de recurso y búsqueda
+  const filteredDocuments = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     const list = documents.filter((d) => {
+      // Filtro por pestaña de tipo
+      if (activeMainTab === 'sheets') {
+        if (d.type !== 'google_sheet' && d.type !== 'sheet') return false;
+      } else if (activeMainTab === 'docs') {
+        if (d.type !== 'google_doc' && d.type !== 'doc') return false;
+      }
+
+      // Filtro por carpeta
       const matchFolder = selectedFolder === 'all' || d.folder === selectedFolder;
       if (!matchFolder) return false;
+
       if (!term) return true;
       return (
         d.title.toLowerCase().includes(term) ||
@@ -82,34 +96,46 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       if (!a.isPinned && b.isPinned) return 1;
       return (b.updatedAt || '').localeCompare(a.updatedAt || '');
     });
-  }, [documents, selectedFolder, searchTerm]);
+  }, [documents, activeMainTab, selectedFolder, searchTerm]);
 
-  // Conversión inteligente del link para renderizado óptimo en iframe
-  const getEmbedUrl = (rawUrl: string) => {
+  // Contadores para pestañas
+  const sheetsCount = useMemo(
+    () => documents.filter((d) => d.type === 'google_sheet' || d.type === 'sheet').length,
+    [documents]
+  );
+  const docsCount = useMemo(
+    () => documents.filter((d) => d.type === 'google_doc' || d.type === 'doc').length,
+    [documents]
+  );
+
+  // Conversión de link para renderizado sin bloqueo en iframe
+  const getEmbedUrl = (rawUrl: string, type: string) => {
     if (!rawUrl) return '';
     let url = rawUrl.trim();
     if (url.includes('/preview') || url.includes('/pubhtml')) {
       return url;
     }
-    if (url.includes('docs.google.com/spreadsheets/d/')) {
+    if (url.includes('docs.google.com/spreadsheets/d/') || url.includes('docs.google.com/document/d/')) {
       return url.replace(/\/edit.*$/, '/preview');
     }
     return url;
   };
 
-  const handleOpenCreateModal = () => {
+  const handleOpenCreateModal = (type: 'google_sheet' | 'google_doc' = 'google_sheet') => {
     setActiveDoc(null);
-    setSheetTitle('');
-    setSheetFolder(selectedFolder !== 'all' ? selectedFolder : 'Finanzas & Inversión');
-    setSheetUrl('');
+    setItemType(type);
+    setItemTitle(type === 'google_sheet' ? 'Nueva Hoja de Cálculo' : 'Nuevo Documento');
+    setItemFolder(selectedFolder !== 'all' ? selectedFolder : type === 'google_sheet' ? 'Finanzas & Inversión' : 'Legal & Constitución');
+    setItemUrl('');
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (doc: MigaliaDocument) => {
     setActiveDoc(doc);
-    setSheetTitle(doc.title);
-    setSheetFolder(doc.folder);
-    setSheetUrl(doc.googleUrl || (doc.content?.startsWith('http') ? doc.content : ''));
+    setItemType(doc.type === 'google_doc' || doc.type === 'doc' ? 'google_doc' : 'google_sheet');
+    setItemTitle(doc.title);
+    setItemFolder(doc.folder);
+    setItemUrl(doc.googleUrl || (doc.content?.startsWith('http') ? doc.content : ''));
     setIsModalOpen(true);
   };
 
@@ -123,15 +149,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   };
 
   const handleSave = () => {
-    if (!sheetTitle.trim()) return;
+    if (!itemTitle.trim()) return;
 
-    const finalUrl = sheetUrl.trim();
+    const finalUrl = itemUrl.trim();
     const docToSave: MigaliaDocument = {
       id: activeDoc ? activeDoc.id : 'doc-' + Date.now(),
-      title: sheetTitle.trim(),
-      type: 'google_sheet',
-      folder: sheetFolder,
-      content: finalUrl,
+      title: itemTitle.trim(),
+      type: itemType,
+      folder: itemFolder,
+      content: finalUrl || (activeDoc?.content || ''),
       googleUrl: finalUrl || undefined,
       authorName: activeDoc?.authorName || currentPartnerName || 'Mario',
       createdAt: activeDoc?.createdAt || new Date().toISOString().split('T')[0],
@@ -180,251 +206,415 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Principal Google Sheets */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
+      {/* Header Principal: Google Workspace & Drive Explorer */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="p-2.5 bg-emerald-50 text-[#0F9D58] rounded-xl border border-emerald-100 shadow-xs">
-              <FileSpreadsheet className="w-6 h-6" />
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center -space-x-1.5 p-2 bg-stone-50 border border-stone-200 rounded-xl shadow-xs">
+              <FileSpreadsheet className="w-5 h-5 text-[#0F9D58]" />
+              <FileText className="w-5 h-5 text-[#4285F4]" />
+              <FolderOpen className="w-5 h-5 text-[#FBBC04]" />
+            </div>
             <div>
               <h1 className="text-2xl font-serif font-bold text-stone-900 tracking-tight">
-                Google Sheets
+                Google Workspace & Drive
               </h1>
               <span className="text-[11px] font-bold text-[#0F9D58] uppercase tracking-wider">
-                Hojas de Cálculo & Modelos Financieros en la Nube
+                Google Sheets · Google Docs · Carpeta Oficial en Drive
               </span>
             </div>
           </div>
           <p className="text-xs sm:text-sm text-stone-500 mt-1.5 max-w-2xl">
-            Tus presupuestos, costeo de insumos, nóminas y proyecciones de inversión sincronizados en Google Drive con soporte total para fórmulas matemáticas.
+            Accede a todas tus hojas de cálculo, actas y al repositorio centralizado de Google Drive de Migalia desde un solo lugar.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Acciones directas */}
+        <div className="flex items-center gap-2 flex-wrap">
           <a
-            href="https://sheets.new"
+            href={MIGALIA_DRIVE_URL}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold transition"
-            title="Crear nueva hoja en blanco en tu cuenta de Google"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold transition"
+            title="Abrir la carpeta oficial en Google Drive"
           >
-            <Plus className="w-3.5 h-3.5 text-[#0F9D58]" />
-            <span>Crear en sheets.new</span>
-            <ExternalLink className="w-3 h-3 text-[#0F9D58]" />
+            <FolderOpen className="w-3.5 h-3.5 text-amber-600" />
+            <span>Abrir Drive Oficial</span>
+            <ExternalLink className="w-3 h-3 text-amber-600" />
           </a>
 
           <button
-            onClick={handleOpenCreateModal}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0F9D58] hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition shadow-sm"
+            onClick={() => handleOpenCreateModal('google_sheet')}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#0F9D58] hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
           >
-            <Plus className="w-4 h-4 text-white" />
-            <span>+ Vincular Hoja</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Google Sheet</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenCreateModal('google_doc')}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#4285F4] hover:bg-blue-600 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Google Doc</span>
           </button>
         </div>
       </div>
 
-      {/* Selector de Carpetas y Buscador */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+      {/* Selector de Pestañas Principales: Todos | Sheets | Docs | Explorador de Drive */}
+      <div className="flex items-center justify-between border-b border-stone-200 pb-2">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
           <button
-            onClick={() => setSelectedFolder('all')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
-              selectedFolder === 'all'
-                ? 'bg-stone-900 text-white shadow-sm'
-                : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+            onClick={() => setActiveMainTab('all')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeMainTab === 'all'
+                ? 'bg-stone-900 text-white shadow-xs'
+                : 'text-stone-600 hover:bg-stone-100'
             }`}
           >
-            Todas ({documents.length})
+            <span>Todos los Archivos</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeMainTab === 'all' ? 'bg-stone-800 text-stone-200' : 'bg-stone-100 text-stone-600'}`}>
+              {documents.length}
+            </span>
           </button>
-          {FOLDERS.map((f) => {
-            const count = documents.filter((d) => d.folder === f).length;
-            const isSelected = selectedFolder === f;
-            return (
+
+          <button
+            onClick={() => setActiveMainTab('sheets')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeMainTab === 'sheets'
+                ? 'bg-[#0F9D58] text-white shadow-xs'
+                : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-800'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Google Sheets</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeMainTab === 'sheets' ? 'bg-emerald-800 text-emerald-100' : 'bg-stone-100 text-stone-600'}`}>
+              {sheetsCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveMainTab('docs')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeMainTab === 'docs'
+                ? 'bg-[#4285F4] text-white shadow-xs'
+                : 'text-stone-600 hover:bg-blue-50 hover:text-blue-800'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Google Docs</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeMainTab === 'docs' ? 'bg-blue-800 text-blue-100' : 'bg-stone-100 text-stone-600'}`}>
+              {docsCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveMainTab('drive')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeMainTab === 'drive'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-stone-600 hover:bg-amber-50 hover:text-amber-800'
+            }`}
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span>Carpeta Drive (En Vivo)</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          </button>
+        </div>
+      </div>
+
+      {/* VISTA 1: EXPLORADOR DRIVE EN VIVO */}
+      {activeMainTab === 'drive' && (
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden flex flex-col">
+          {/* Barra superior informativa de Drive */}
+          <div className="p-4 bg-amber-50/70 border-b border-stone-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-white border border-amber-200 text-amber-700 rounded-xl shadow-2xs">
+                <FolderOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-stone-900 text-base">
+                  Carpeta Oficial de Migalia en Google Drive
+                </h3>
+                <p className="text-xs text-stone-600">
+                  ID: <code className="bg-white px-1.5 py-0.5 rounded border border-amber-200 font-mono text-[11px]">{MIGALIA_DRIVE_FOLDER_ID}</code>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href={MIGALIA_DRIVE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold transition inline-flex items-center gap-2 shadow-xs"
+              >
+                <span>Abrir en Google Drive</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+
+          {/* Advertencia amigable de autenticación Google */}
+          <div className="px-4 py-2.5 bg-stone-50 border-b border-stone-200 flex items-center justify-between text-xs text-stone-600">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Google Drive requiere que hayas iniciado sesión con tu cuenta de Google en este navegador para ver el contenido de la carpeta.
+              </span>
+            </div>
+            <a
+              href={MIGALIA_DRIVE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-bold text-amber-700 hover:underline shrink-0 hidden md:inline"
+            >
+              Abrir en pestaña nueva ↗
+            </a>
+          </div>
+
+          {/* Iframe oficial de la carpeta de Drive */}
+          <div className="w-full h-[650px] bg-stone-100 relative">
+            <iframe
+              src={MIGALIA_DRIVE_EMBED_URL}
+              className="w-full h-full border-0"
+              title="Google Drive Migalia Folder"
+              allow="clipboard-read; clipboard-write"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* VISTA 2: LISTADO DE HOJAS Y DOCUMENTOS VINCULADOS */}
+      {activeMainTab !== 'drive' && (
+        <>
+          {/* Selector de Carpetas temáticas y Buscador */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
               <button
-                key={f}
-                onClick={() => setSelectedFolder(f)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
-                  isSelected
+                onClick={() => setSelectedFolder('all')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                  selectedFolder === 'all'
                     ? 'bg-stone-900 text-white shadow-sm'
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 }`}
               >
-                <span>{f}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isSelected ? 'bg-stone-800 text-emerald-400' : 'bg-stone-100 text-stone-500'
-                  }`}
-                >
-                  {count}
-                </span>
+                Todas ({documents.length})
               </button>
-            );
-          })}
-        </div>
+              {FOLDERS.map((f) => {
+                const count = documents.filter((d) => d.folder === f).length;
+                const isSelected = selectedFolder === f;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setSelectedFolder(f)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                      isSelected
+                        ? 'bg-stone-900 text-white shadow-sm'
+                        : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+                    }`}
+                  >
+                    <span>{f}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                        isSelected ? 'bg-stone-800 text-emerald-400' : 'bg-stone-100 text-stone-500'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* Buscador */}
-        <div className="relative min-w-[260px]">
-          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar hoja de cálculo..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-          />
-        </div>
-      </div>
-
-      {/* Lista de Hojas de Cálculo en Cards */}
-      {filteredSheets.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
-          <div className="w-14 h-14 bg-emerald-50 text-[#0F9D58] rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <FileSpreadsheet className="w-7 h-7" />
+            {/* Buscador */}
+            <div className="relative min-w-[260px]">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o autor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+              />
+            </div>
           </div>
-          <h3 className="text-base font-semibold text-stone-800">No hay hojas de cálculo vinculadas</h3>
-          <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-            Vincula tus Google Sheets de costeo, proyecciones financieras o inventarios para tenerlos a un clic.
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <button
-              onClick={handleOpenCreateModal}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F9D58] hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Vincular Google Sheet</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSheets.map((sheet) => {
-            const rawUrl = sheet.googleUrl || (sheet.content?.startsWith('http') ? sheet.content : '');
-            const hasValidLink = Boolean(rawUrl && rawUrl.startsWith('http'));
 
-            return (
-              <div
-                key={sheet.id}
-                className={`group bg-white rounded-2xl border transition-all flex flex-col justify-between ${
-                  sheet.isPinned
-                    ? 'border-emerald-400/80 shadow-xs bg-gradient-to-b from-emerald-50/20 to-white'
-                    : 'border-stone-200 hover:shadow-md hover:border-stone-300'
-                } p-5`}
-              >
-                <div>
-                  {/* Encabezado de la Card */}
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 group-hover:scale-105 transition text-[#0F9D58]">
-                        <FileSpreadsheet className="w-5 h-5" />
-                      </span>
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F9D58] block">
-                          Google Sheets
-                        </span>
-                        <span className="text-[10px] text-stone-400 font-medium">
-                          {hasValidLink ? 'Enlace Directo Activo' : 'Sin enlace configurado'}
-                        </span>
+          {/* Cards de Documentos / Sheets */}
+          {filteredDocuments.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
+              <div className="w-14 h-14 bg-stone-100 text-stone-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <FileSpreadsheet className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-semibold text-stone-800">No hay archivos en esta vista</h3>
+              <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
+                Vincula tus Google Sheets o Google Docs oficiales o explora la carpeta de Google Drive.
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => handleOpenCreateModal('google_sheet')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F9D58] hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Google Sheet</span>
+                </button>
+                <button
+                  onClick={() => handleOpenCreateModal('google_doc')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#4285F4] hover:bg-blue-600 text-white rounded-xl text-xs font-semibold transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Google Doc</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDocuments.map((doc) => {
+                const isSheet = doc.type === 'google_sheet' || doc.type === 'sheet';
+                const rawUrl = doc.googleUrl || (doc.content?.startsWith('http') ? doc.content : '');
+                const hasValidLink = Boolean(rawUrl && rawUrl.startsWith('http'));
+
+                return (
+                  <div
+                    key={doc.id}
+                    className={`group bg-white rounded-2xl border transition-all flex flex-col justify-between ${
+                      doc.isPinned
+                        ? isSheet
+                          ? 'border-emerald-400/80 shadow-xs bg-gradient-to-b from-emerald-50/20 to-white'
+                          : 'border-blue-400/80 shadow-xs bg-gradient-to-b from-blue-50/20 to-white'
+                        : 'border-stone-200 hover:shadow-md hover:border-stone-300'
+                    } p-5`}
+                  >
+                    <div>
+                      {/* Encabezado de la Card */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={`p-2.5 rounded-xl border group-hover:scale-105 transition ${
+                              isSheet
+                                ? 'bg-emerald-50 border-emerald-100 text-[#0F9D58]'
+                                : 'bg-blue-50 border-blue-100 text-[#4285F4]'
+                            }`}
+                          >
+                            {isSheet ? <FileSpreadsheet className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                          </span>
+                          <div>
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-wider block ${
+                                isSheet ? 'text-[#0F9D58]' : 'text-[#4285F4]'
+                              }`}
+                            >
+                              {isSheet ? 'Google Sheets' : 'Google Docs'}
+                            </span>
+                            <span className="text-[10px] text-stone-400 font-medium">
+                              {hasValidLink ? 'Enlace Directo Activo' : 'Documento Estructurado'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
+                          <button
+                            onClick={(e) => handleTogglePin(e, doc)}
+                            className={`p-1.5 rounded-lg transition ${
+                              doc.isPinned
+                                ? 'text-amber-600 bg-amber-100/70 hover:bg-amber-100'
+                                : 'text-stone-300 hover:text-stone-600 hover:bg-stone-100'
+                            }`}
+                            title={doc.isPinned ? 'Desfijar' : 'Fijar arriba'}
+                          >
+                            <Pin className="w-3.5 h-3.5" />
+                          </button>
+
+                          {hasValidLink && (
+                            <a
+                              href={rawUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition"
+                              title="Abrir en pestaña nueva"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              if (confirm(`¿Eliminar "${doc.title}" del listado?`)) {
+                                onDeleteDocument(doc.id);
+                              }
+                            }}
+                            className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Título */}
+                      <h3
+                        onClick={() => handleOpenEditModal(doc)}
+                        className="font-serif font-bold text-stone-900 text-base leading-snug hover:text-stone-700 cursor-pointer transition line-clamp-2"
+                      >
+                        {doc.title}
+                      </h3>
+
+                      <div className="mt-3 flex items-center gap-2">
+                        {getFolderBadge(doc.folder)}
+                        {doc.isPinned && (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                            📌 Fijado
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
-                      <button
-                        onClick={(e) => handleTogglePin(e, sheet)}
-                        className={`p-1.5 rounded-lg transition ${
-                          sheet.isPinned
-                            ? 'text-amber-600 bg-amber-100/70 hover:bg-amber-100'
-                            : 'text-stone-300 hover:text-stone-600 hover:bg-stone-100'
-                        }`}
-                        title={sheet.isPinned ? 'Desfijar' : 'Fijar arriba'}
-                      >
-                        <Pin className="w-3.5 h-3.5" />
-                      </button>
+                    {/* Footer y Acciones Rápidas */}
+                    <div className="mt-5 pt-3 border-t border-stone-100 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-stone-400">
+                        <div className="flex items-center gap-1.5">
+                          <User className="w-3 h-3" />
+                          <span className="font-medium text-stone-600">{doc.authorName || 'Mario'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          <span>{doc.updatedAt}</span>
+                        </div>
+                      </div>
 
-                      {hasValidLink && (
-                        <a
-                          href={rawUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition"
-                          title="Abrir en Google Sheets en pestaña nueva"
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => handleOpenEditModal(doc)}
+                          className="flex-1 py-1.5 px-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-medium transition text-center"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-
-                      <button
-                        onClick={() => {
-                          if (confirm(`¿Eliminar "${sheet.title}" del listado?`)) {
-                            onDeleteDocument(sheet.id);
-                          }
-                        }}
-                        className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                          Ver / Editar
+                        </button>
+                        {hasValidLink && (
+                          <a
+                            href={rawUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`py-1.5 px-3 rounded-xl text-xs font-semibold transition flex items-center gap-1 ${
+                              isSheet
+                                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+                                : 'bg-blue-50 hover:bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            <span>Abrir</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  {/* Título de la Hoja */}
-                  <h3
-                    onClick={() => handleOpenEditModal(sheet)}
-                    className="font-serif font-bold text-stone-900 text-base leading-snug hover:text-emerald-700 cursor-pointer transition line-clamp-2"
-                  >
-                    {sheet.title}
-                  </h3>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    {getFolderBadge(sheet.folder)}
-                    {sheet.isPinned && (
-                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                        📌 Fijado
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Acciones Rápidas en Footer */}
-                <div className="mt-5 pt-3 border-t border-stone-100 space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-stone-400">
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-3 h-3" />
-                      <span className="font-medium text-stone-600">{sheet.authorName || 'Mario'}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{sheet.updatedAt}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => handleOpenEditModal(sheet)}
-                      className="flex-1 py-1.5 px-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-medium transition text-center"
-                    >
-                      Ver / Configurar
-                    </button>
-                    {hasValidLink && (
-                      <a
-                        href={rawUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold transition flex items-center gap-1"
-                      >
-                        <span>Abrir</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Modal Visor / Vinculador de Google Sheets */}
+      {/* Modal Visor / Vinculador de Google Sheets o Google Docs */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
           <div
@@ -435,23 +625,43 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             {/* Header del Modal */}
             <div className="p-4 sm:px-6 bg-stone-50 border-b border-stone-200 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3 flex-1 min-w-[260px]">
-                <span className="p-2 bg-emerald-50 text-[#0F9D58] border border-emerald-200 rounded-xl shadow-xs">
-                  <FileSpreadsheet className="w-5 h-5" />
+                <span
+                  className={`p-2 rounded-xl shadow-xs border ${
+                    itemType === 'google_sheet'
+                      ? 'bg-emerald-50 text-[#0F9D58] border-emerald-200'
+                      : 'bg-blue-50 text-[#4285F4] border-blue-200'
+                  }`}
+                >
+                  {itemType === 'google_sheet' ? (
+                    <FileSpreadsheet className="w-5 h-5" />
+                  ) : (
+                    <FileText className="w-5 h-5" />
+                  )}
                 </span>
                 <input
                   type="text"
-                  value={sheetTitle}
-                  onChange={(e) => setSheetTitle(e.target.value)}
-                  placeholder="Título de la Hoja (ej. Costeo de Galletas, Presupuesto CAPEX)..."
-                  className="bg-transparent text-base sm:text-lg font-serif font-bold text-stone-900 border-b border-dashed border-stone-300 focus:border-emerald-600 focus:outline-none w-full max-w-md py-0.5"
+                  value={itemTitle}
+                  onChange={(e) => setItemTitle(e.target.value)}
+                  placeholder="Título del documento u hoja..."
+                  className="bg-transparent text-base sm:text-lg font-serif font-bold text-stone-900 border-b border-dashed border-stone-300 focus:border-stone-600 focus:outline-none w-full max-w-md py-0.5"
                 />
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Tipo de Documento */}
                 <select
-                  value={sheetFolder}
-                  onChange={(e) => setSheetFolder(e.target.value as DocumentFolder)}
-                  className="text-xs bg-white border border-stone-200 rounded-xl px-3 py-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium"
+                  value={itemType}
+                  onChange={(e) => setItemType(e.target.value as 'google_sheet' | 'google_doc')}
+                  className="text-xs bg-white border border-stone-200 rounded-xl px-3 py-2 text-stone-700 focus:outline-none font-medium"
+                >
+                  <option value="google_sheet">📊 Google Sheets</option>
+                  <option value="google_doc">📄 Google Docs</option>
+                </select>
+
+                <select
+                  value={itemFolder}
+                  onChange={(e) => setItemFolder(e.target.value as DocumentFolder)}
+                  className="text-xs bg-white border border-stone-200 rounded-xl px-3 py-2 text-stone-700 focus:outline-none font-medium"
                 >
                   {FOLDERS.map((f) => (
                     <option key={f} value={f}>
@@ -460,15 +670,19 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   ))}
                 </select>
 
-                {sheetUrl && sheetUrl.startsWith('http') && (
+                {itemUrl && itemUrl.startsWith('http') && (
                   <a
-                    href={sheetUrl}
+                    href={itemUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-2 bg-[#0F9D58] hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
-                    title="Abrir en pestaña completa de Google Sheets"
+                    className={`flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-xs font-semibold transition shadow-xs ${
+                      itemType === 'google_sheet'
+                        ? 'bg-[#0F9D58] hover:bg-emerald-700'
+                        : 'bg-[#4285F4] hover:bg-blue-600'
+                    }`}
+                    title="Abrir en pestaña completa de Google"
                   >
-                    <span>Abrir en Google Sheets</span>
+                    <span>Abrir en Google</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
@@ -498,87 +712,138 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               </div>
             </div>
 
-            {/* Barra de Enlace de Google Sheets */}
-            <div className="p-3.5 bg-emerald-50/60 border-b border-stone-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+            {/* Barra de Enlace de Google */}
+            <div
+              className={`p-3.5 border-b border-stone-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs ${
+                itemType === 'google_sheet' ? 'bg-emerald-50/60' : 'bg-blue-50/60'
+              }`}
+            >
               <div className="flex-1 flex items-center gap-2">
-                <span className="font-bold text-emerald-900 shrink-0">Enlace de Google Sheets:</span>
+                <span className="font-bold text-stone-800 shrink-0">
+                  {itemType === 'google_sheet' ? 'Enlace de Google Sheets:' : 'Enlace de Google Docs:'}
+                </span>
                 <input
                   type="url"
-                  placeholder="https://docs.google.com/spreadsheets/d/123456.../edit"
-                  value={sheetUrl}
-                  onChange={(e) => setSheetUrl(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs font-mono"
+                  placeholder={
+                    itemType === 'google_sheet'
+                      ? 'https://docs.google.com/spreadsheets/d/...'
+                      : 'https://docs.google.com/document/d/...'
+                  }
+                  value={itemUrl}
+                  onChange={(e) => setItemUrl(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-stone-200 rounded-xl text-stone-800 focus:outline-none text-xs font-mono"
                 />
               </div>
+
               <div className="flex items-center gap-3 shrink-0">
-                <a
-                  href="https://sheets.new"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-1"
-                >
-                  <Plus className="w-3 h-3" /> Crear nueva (sheets.new)
-                </a>
+                {itemType === 'google_sheet' ? (
+                  <a
+                    href="https://sheets.new"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Crear nueva hoja (sheets.new)
+                  </a>
+                ) : (
+                  <a
+                    href="https://docs.new"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] font-bold text-blue-700 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Crear nuevo doc (docs.new)
+                  </a>
+                )}
               </div>
             </div>
 
             {/* Contenedor: Iframe o Instrucciones Claras */}
             <div className="flex-1 bg-stone-100 p-2 sm:p-4 overflow-hidden flex flex-col">
-              {sheetUrl && sheetUrl.startsWith('http') ? (
+              {itemUrl && itemUrl.startsWith('http') ? (
                 <div className="flex-1 bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-inner flex flex-col relative">
                   <div className="p-2.5 bg-stone-50 border-b border-stone-200 flex items-center justify-between text-xs text-stone-600">
                     <div className="flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <AlertCircle className="w-3.5 h-3.5 text-stone-600" />
                       <span>
-                        Vista previa embebida. Para editar con todas las barras de herramientas de Google:
+                        Vista previa embebida de Google Workspace:
                       </span>
                     </div>
                     <a
-                      href={sheetUrl}
+                      href={itemUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2.5 py-1 bg-[#0F9D58] text-white hover:bg-emerald-700 text-[11px] font-semibold rounded-lg transition inline-flex items-center gap-1"
+                      className={`px-2.5 py-1 text-white text-[11px] font-semibold rounded-lg transition inline-flex items-center gap-1 ${
+                        itemType === 'google_sheet'
+                          ? 'bg-[#0F9D58] hover:bg-emerald-700'
+                          : 'bg-[#4285F4] hover:bg-blue-600'
+                      }`}
                     >
-                      <span>Abrir en Google Sheets</span>
+                      <span>Abrir en Google</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
 
                   <iframe
-                    src={getEmbedUrl(sheetUrl)}
+                    src={getEmbedUrl(itemUrl, itemType)}
                     className="w-full flex-1 border-0"
-                    title="Google Sheets Embebido"
+                    title="Recurso Embebido de Google Workspace"
                     allow="clipboard-read; clipboard-write"
                   />
                 </div>
               ) : (
                 <div className="flex-1 bg-white rounded-2xl border border-dashed border-stone-300 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto my-auto shadow-xs">
-                  <div className="p-4 bg-emerald-50 text-[#0F9D58] rounded-2xl mb-4">
-                    <FileSpreadsheet className="w-12 h-12" />
+                  <div
+                    className={`p-4 rounded-2xl mb-4 ${
+                      itemType === 'google_sheet'
+                        ? 'bg-emerald-50 text-[#0F9D58]'
+                        : 'bg-blue-50 text-[#4285F4]'
+                    }`}
+                  >
+                    {itemType === 'google_sheet' ? (
+                      <FileSpreadsheet className="w-12 h-12" />
+                    ) : (
+                      <FileText className="w-12 h-12" />
+                    )}
                   </div>
                   <h4 className="text-lg font-serif font-bold text-stone-900">
-                    Pega el enlace de tu Google Sheet
+                    {itemType === 'google_sheet'
+                      ? 'Pega el enlace de tu Google Sheet'
+                      : 'Pega el enlace de tu Google Doc'}
                   </h4>
                   <p className="text-xs text-stone-500 mt-1 max-w-md">
-                    Es muy fácil y no necesitas redactar nada manual:
+                    O guárdalo dentro de la carpeta oficial de Drive de Migalia.
                   </p>
 
                   <div className="w-full text-left text-xs text-stone-700 mt-4 space-y-2.5 bg-stone-50 p-4 rounded-xl border border-stone-200">
                     <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
-                      <span>Abre tu hoja en Google Sheets o crea una nueva con <a href="https://sheets.new" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold underline">sheets.new</a>.</span>
+                      <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-800 font-bold flex items-center justify-center shrink-0 text-[11px]">
+                        1
+                      </span>
+                      <span>
+                        Abre tu archivo o entra a la{' '}
+                        <a
+                          href={MIGALIA_DRIVE_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold underline text-amber-800"
+                        >
+                          Carpeta Oficial de Drive de Migalia
+                        </a>
+                        .
+                      </span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
+                      <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-800 font-bold flex items-center justify-center shrink-0 text-[11px]">
+                        2
+                      </span>
                       <span>Haz clic en el botón <strong>«Compartir»</strong> arriba a la derecha.</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
-                      <span>Elige <strong>«Cualquier persona con el enlace»</strong> y copia el enlace.</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[11px]">4</span>
-                      <span>Pégalo arriba en el campo de enlace y presiona <strong>«Guardar»</strong>.</span>
+                      <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-800 font-bold flex items-center justify-center shrink-0 text-[11px]">
+                        3
+                      </span>
+                      <span>Copia el enlace y pégalo arriba en el campo de enlace.</span>
                     </div>
                   </div>
                 </div>
