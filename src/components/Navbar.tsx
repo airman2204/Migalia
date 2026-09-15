@@ -55,20 +55,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Vista Global</span>
           </button>
 
-          {partners.map((partner) => (
-            <button
-              key={partner.id}
-              onClick={() => onFilterChange(partner.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ${
-                currentFilter === partner.id
-                  ? 'bg-[#221F1D] text-[#F8F6F0] shadow-sm font-semibold'
-                  : 'text-[#6E665D] hover:text-[#221F1D]'
-              }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>{partner.shortName}</span>
-            </button>
-          ))}
+          {partners.map((partner) => {
+            const isOnline = partner.isOnline ?? (partner.id === currentPartner?.id);
+            return (
+              <button
+                key={partner.id}
+                onClick={() => onFilterChange(partner.id)}
+                className={`relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ${
+                  currentFilter === partner.id
+                    ? 'bg-[#221F1D] text-[#F8F6F0] shadow-sm font-semibold'
+                    : 'text-[#6E665D] hover:text-[#221F1D]'
+                }`}
+                title={`${partner.name} - ${isOnline ? 'En línea (Disponible)' : 'Desconectado'}`}
+              >
+                <span className="relative flex items-center justify-center">
+                  <User className="w-3.5 h-3.5" />
+                  <span
+                    className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white ${
+                      isOnline ? 'bg-emerald-500 ring-1 ring-emerald-300' : 'bg-stone-300'
+                    }`}
+                  />
+                </span>
+                <span>{partner.shortName}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Right Actions */}

@@ -50,6 +50,10 @@ export interface Partner {
   role: string;
   /** URL o iniciales para el avatar visual */
   avatar: string;
+  /** Estado de presencia en vivo en la plataforma */
+  isOnline?: boolean;
+  /** Marca de tiempo de última actividad (timestamp ms o ISO) */
+  lastSeen?: string | number;
 }
 
 /**

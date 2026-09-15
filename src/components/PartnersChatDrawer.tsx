@@ -111,7 +111,17 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-serif font-bold text-sm">Chat Interno de Socios</h3>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                {partners.some((p) => p.id !== currentPartner?.id && p.isOnline) ? (
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800/40">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    En línea
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] text-stone-400 font-medium bg-stone-800 px-2 py-0.5 rounded-full border border-stone-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-stone-400" />
+                    Desconectado
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-stone-400">Mario & Susy · Migalia Puebla</p>
             </div>

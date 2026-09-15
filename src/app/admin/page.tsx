@@ -224,6 +224,66 @@ export default function Home() {
     loadDataFromSupabase();
   }, []);
 
+  // 1.1 Sistema de Presencia en Línea en Tiempo Real (Supabase Presence)
+  useEffect(() => {
+    if (!currentPartner) return;
+
+    // Crear canal de presencia en tiempo real para Migalia
+    const channel = supabase.channel('migalia_presence', {
+      config: {
+        presence: {
+          key: currentPartner.id,
+        },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const onlineIds = new Set<string>();
+
+        Object.values(state).forEach((presences: any) => {
+          if (Array.isArray(presences)) {
+            presences.forEach((p) => {
+              if (p.partnerId) onlineIds.add(p.partnerId);
+            });
+          }
+        });
+
+        // Actualizar socios con su estado isOnline
+        setPartners((prev) =>
+          prev.map((p) => ({
+            ...p,
+            isOnline: onlineIds.has(p.id) || p.id === currentPartner.id,
+          }))
+        );
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        setPartners((prev) =>
+          prev.map((p) => (p.id === key ? { ...p, isOnline: true } : p))
+        );
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        setPartners((prev) =>
+          prev.map((p) => (p.id === key ? { ...p, isOnline: false } : p))
+        );
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            partnerId: currentPartner.id,
+            partnerName: currentPartner.name,
+            onlineAt: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      channel.untrack();
+      supabase.removeChannel(channel);
+    };
+  }, [currentPartner]);
+
   // Manejador de Login
   const handleLogin = (partner: Partner) => {
     setCurrentPartner(partner);

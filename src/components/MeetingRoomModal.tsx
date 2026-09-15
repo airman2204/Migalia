@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Partner, LogbookEntry, ScheduledMeeting } from '@/types';
 import {
   Video,
@@ -67,6 +67,48 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
 
+  // Función para apagar completamente la cámara y micrófono liberando el hardware físico
+  const stopAllMediaTracks = useCallback(() => {
+    // 1. Detener stream de la referencia
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+          track.enabled = false;
+        } catch (e) {}
+      });
+      mediaStreamRef.current = null;
+    }
+
+    // 2. Limpiar elemento de video
+    if (localVideoRef.current) {
+      if (localVideoRef.current.srcObject) {
+        const stream = localVideoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+            track.enabled = false;
+          } catch (e) {}
+        });
+        localVideoRef.current.srcObject = null;
+      }
+    }
+
+    // 3. Detener reconocimiento de voz
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+  }, []);
+
+  // Cierre limpio de la llamada
+  const handleExitCall = useCallback(() => {
+    stopAllMediaTracks();
+    onClose();
+  }, [stopAllMediaTracks, onClose]);
+
   // 1. Iniciar WebRTC nativo (cámara y micrófono locales del socio)
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -102,14 +144,17 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
 
     return () => {
       clearInterval(interval);
+      stopAllMediaTracks();
       if (activeStream) {
-        activeStream.getTracks().forEach((track) => track.stop());
-      }
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        activeStream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+            track.enabled = false;
+          } catch (e) {}
+        });
       }
     };
-  }, []);
+  }, [stopAllMediaTracks]);
 
   // 2. Control de Captura de Notas con Reconocimiento de Voz
   useEffect(() => {
@@ -247,8 +292,10 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const partner1 = partners[0] || { name: 'Mario Alberto González', role: 'Finanzas & Legal' };
-  const partner2 = partners[1] || { name: 'Susy', role: 'Dirección Culinaria & Operaciones' };
+  const partner1 = partners[0] || { name: 'Mario Alberto González', role: 'Finanzas & Legal', isOnline: true };
+  const remotePartner =
+    partners.find((p) => p.id !== currentPartner?.id) ||
+    partners[1] || { name: 'Susy', role: 'Dirección Culinaria & Operaciones', isOnline: false };
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
@@ -280,7 +327,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
 
           <div className="flex items-center gap-3">
             <button
-              onClick={onClose}
+              onClick={handleExitCall}
               className="p-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-xl transition"
               title="Cerrar sala"
             >
@@ -334,19 +381,31 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
               <div className="relative bg-stone-950 rounded-2xl overflow-hidden border border-stone-800 h-full min-h-[220px] flex items-center justify-center shadow-lg">
                 <div className="text-center p-6 text-stone-400">
                   <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-xl font-bold text-amber-400 mx-auto mb-2 border border-stone-700 shadow-md">
-                    {partner2.name.charAt(0)}
+                    {remotePartner.name.charAt(0)}
                   </div>
-                  <p className="text-xs font-bold text-stone-200">{partner2.name}</p>
-                  <p className="text-[11px] text-amber-400/90 font-medium">{partner2.role}</p>
-                  <span className="inline-block mt-2 text-[10px] px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/40 rounded-full">
-                    Conectado a la sesión
-                  </span>
+                  <p className="text-xs font-bold text-stone-200">{remotePartner.name}</p>
+                  <p className="text-[11px] text-amber-400/90 font-medium">{remotePartner.role}</p>
+                  {remotePartner.isOnline ? (
+                    <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] px-2.5 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/40 rounded-full font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Disponible en la plataforma
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] px-2.5 py-0.5 bg-stone-800 text-stone-400 border border-stone-700 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-500" />
+                      Fuera de línea
+                    </span>
+                  )}
                 </div>
 
                 {/* Badge de Socio Remoto */}
                 <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-xl text-xs flex items-center gap-2 border border-white/10">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="font-bold text-white text-[11px]">{partner2.name}</span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      remotePartner.isOnline ? 'bg-emerald-400' : 'bg-stone-500'
+                    }`}
+                  />
+                  <span className="font-bold text-white text-[11px]">{remotePartner.name}</span>
                 </div>
               </div>
             </div>
@@ -381,7 +440,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
 
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleExitCall}
                 className="px-5 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg transition"
                 title="Finalizar llamada"
               >
