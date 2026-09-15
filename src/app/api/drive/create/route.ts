@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,86 +10,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'El título es requerido' }, { status: 400 });
     }
 
-    const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const rawKey = process.env.GOOGLE_PRIVATE_KEY;
-    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+    const webhookUrl =
+      process.env.GOOGLE_DRIVE_WEBHOOK_URL ||
+      'https://script.google.com/macros/s/AKfycbzQ_7EpRc6-3DeDlfXm-pu_obiH7ooDhegcupMaqtfAbTt-NVyuDFdVpF-2jvReJh6WNw/exec';
 
-    if (!email || !rawKey || !folderId) {
-      return NextResponse.json(
-        { error: 'Credenciales de Google Drive no configuradas en variables de entorno' },
-        { status: 500 }
-      );
-    }
-
-    // Normalizar salto de línea en la clave privada
-    const privateKey = rawKey.replace(/\\n/g, '\n');
-
-    const auth = new google.auth.JWT({
-      email,
-      key: privateKey,
-      scopes: [
-        'https://www.googleapis.com/auth/drive',
-        'https://www.googleapis.com/auth/drive.file',
-      ],
-    });
-
-    const drive = google.drive({ version: 'v3', auth });
-
-    // Determinar mimeType según sea hoja de cálculo o documento de Google
-    const mimeType =
-      type === 'google_sheet'
-        ? 'application/vnd.google-apps.spreadsheet'
-        : 'application/vnd.google-apps.document';
-
-    // 1. Crear el archivo directamente dentro de la carpeta con su título
-    const createRes = await drive.files.create({
-      requestBody: {
-        name: title.trim(),
-        mimeType,
-        parents: [folderId],
+    // Llamar al Google Apps Script Webhook que corre directamente con la cuenta del usuario
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      fields: 'id, name, webViewLink, webContentLink',
-      supportsAllDrives: true,
+      body: JSON.stringify({
+        title: title.trim(),
+        type: type === 'google_sheet' ? 'google_sheet' : 'google_doc',
+      }),
     });
 
-    const file = createRes.data;
+    const data = await res.json();
 
-    if (!file.id) {
-      throw new Error('No se pudo obtener el ID del archivo creado en Drive');
+    if (!data.success) {
+      throw new Error(data.error || 'Error reportado por Google Apps Script');
     }
-
-    // 2. Dar permisos de lectura/edición con el link para que los socios lo abran de inmediato
-    try {
-      await drive.permissions.create({
-        fileId: file.id,
-        requestBody: {
-          role: 'writer',
-          type: 'anyone',
-        },
-        supportsAllDrives: true,
-      });
-    } catch (permErr) {
-      console.warn('Advertencia al configurar permisos públicos del archivo:', permErr);
-    }
-
-    // Generar URL directa de edición
-    const fileUrl =
-      type === 'google_sheet'
-        ? `https://docs.google.com/spreadsheets/d/${file.id}/edit`
-        : `https://docs.google.com/document/d/${file.id}/edit`;
 
     return NextResponse.json({
       success: true,
-      fileId: file.id,
-      name: file.name,
-      url: fileUrl,
+      fileId: data.id,
+      name: data.name,
+      url: data.url,
     });
   } catch (error: any) {
     console.error('Error al crear archivo en Google Drive:', error);
     return NextResponse.json(
       {
-        error: error?.message || 'Error al comunicarse con Google Drive API',
-        details: error?.response?.data || null,
+        error: error?.message || 'Error al comunicarse con el Webhook de Google Drive',
       },
       { status: 500 }
     );
