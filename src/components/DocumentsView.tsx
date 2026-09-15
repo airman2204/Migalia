@@ -116,20 +116,25 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   /**
    * Al crear:
    * 1. Guarda el registro clasificado con su categoría (Legal, Branding, Finanzas, etc.).
-   * 2. Asigna la URL directa a Google Workspace (sheets.new o docs.new).
-   * 3. Abre de inmediato el documento en una pestaña nueva para empezar a trabajar.
+   * 2. Copia automáticamente el nombre al portapapeles del socio para que solo presione Ctrl+V en Google.
+   * 3. Abre directamente la Carpeta Oficial de Migalia en Drive para que al pulsar "+ Nuevo",
+   *    Google garantice que el archivo quede guardado DENTRO de la carpeta de Migalia.
    */
   const handleConfirmCreate = () => {
     const title = createTitle.trim() || (createType === 'google_sheet' ? 'Nueva Hoja de Cálculo' : 'Nuevo Documento');
-    const directUrl = createType === 'google_sheet' ? 'https://sheets.new' : 'https://docs.new';
+
+    // Copiar el nombre al portapapeles
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(title).catch(() => {});
+    }
 
     const newDoc: MigaliaDocument = {
       id: 'doc-' + Date.now(),
       title,
       type: createType,
       folder: createFolder,
-      content: directUrl,
-      googleUrl: directUrl,
+      content: MIGALIA_DRIVE_URL,
+      googleUrl: MIGALIA_DRIVE_URL,
       authorName: currentPartnerName || 'Mario',
       createdAt: new Date().toISOString().split('T')[0],
       updatedAt: new Date().toISOString().split('T')[0],
@@ -139,8 +144,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     onSaveDocument(newDoc);
     setIsCreateModalOpen(false);
 
-    // Redirección directa al documento en Google
-    window.open(directUrl, '_blank');
+    // Abrir directamente la carpeta oficial de Drive de Migalia
+    window.open(MIGALIA_DRIVE_URL, '_blank');
   };
 
   const handleOpenEdit = (doc: MigaliaDocument) => {
@@ -627,6 +632,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   })}
                 </div>
               </div>
+
+              {/* Nota explicativa de Drive */}
+              <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+                <p>
+                  💡 Al hacer clic, se copiará el nombre del archivo y se abrirá la <strong>Carpeta Oficial de Migalia</strong> para que al pulsar <em>«+ Nuevo»</em> el archivo quede guardado directamente adentro.
+                </p>
+              </div>
             </div>
 
             {/* Botón de Confirmación y Creación */}
@@ -648,7 +660,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     : 'bg-[#4285F4] hover:bg-blue-600'
                 }`}
               >
-                <span>Crear y Abrir Documento</span>
+                <span>Crear en Carpeta de Migalia</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </button>
             </div>
