@@ -16,6 +16,7 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { RecipesView } from '@/components/RecipesView';
 import { RecipeModal } from '@/components/RecipeModal';
 import { DocumentsView } from '@/components/DocumentsView';
+import { MigaAIView } from '@/components/MigaAIView';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -579,6 +580,18 @@ export default function Home() {
               currentPartnerName={currentPartner?.name || 'Mario'}
               onSaveDocument={handleSaveDocument}
               onDeleteDocument={handleDeleteDocument}
+            />
+          )}
+
+          {activeTab === 'miga_ai' && (
+            <MigaAIView
+              tasks={tasks}
+              recipes={recipes}
+              logbook={logbook}
+              milestones={milestones}
+              partners={partners}
+              documents={documents}
+              budget={budget}
             />
           )}
         </main>

@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files } from 'lucide-react';
+import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files, Sparkles } from 'lucide-react';
 
-export type ActiveTab = 'dashboard' | 'tasks' | 'kanban' | 'recipes' | 'documents' | 'logbook' | 'milestones';
+export type ActiveTab = 'dashboard' | 'tasks' | 'kanban' | 'recipes' | 'documents' | 'logbook' | 'milestones' | 'miga_ai';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -81,8 +81,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Botón de Configuración hasta abajo */}
-      <div className="mt-8">
+      {/* Sección Inferior: Miga AI y Configuración */}
+      <div className="mt-8 space-y-2">
+        {/* Botón Miga AI - Destacado arriba de configuración */}
+        <button
+          onClick={() => onTabChange('miga_ai')}
+          className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
+            activeTab === 'miga_ai'
+              ? 'bg-gradient-to-r from-[#221F1D] to-[#34302C] text-amber-400 border-amber-500/40 shadow-amber-900/10'
+              : 'bg-white hover:bg-stone-50 text-stone-800 border-amber-300/60 hover:border-amber-400'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 bg-amber-500/10 text-amber-600 rounded-lg">
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <div className="text-left">
+              <div className="leading-tight flex items-center gap-1.5">
+                <span className="font-serif font-bold text-sm">Miga AI</span>
+                <span className="text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-mono font-normal">
+                  Copilot
+                </span>
+              </div>
+              <p className="text-[10px] text-stone-400 font-normal">Reportes & Marketing</p>
+            </div>
+          </div>
+        </button>
+
+        {/* Botón de Configuración hasta abajo */}
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
