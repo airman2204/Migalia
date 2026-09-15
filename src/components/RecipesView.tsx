@@ -62,8 +62,8 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
             <h2 className="text-xl font-bold text-[#221F1D] tracking-tight">
               Recetario & Fichas Técnicas
             </h2>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-[#C59B27Z/15 text-[#8C6239] rounded-md border border-[#C59B27]/30">
-              Estándar ISU
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-[#C59B27]/15 text-[#8C6239] rounded-md border border-[#C59B27]/30">
+              Boutique Bakery
             </span>
           </div>
           <p className="text-xs text-[#6E665D] mt-1">
@@ -93,7 +93,7 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
       </div>
 
       {/* Stats Quick Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-white p-4 rounded-xl border border-[#E6DFD5] shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-[11px] font-medium text-[#6E665D]">Total Fichas Técnicas</p>
@@ -115,16 +115,6 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
           </div>
           <div className="w-9 h-9 rounded-lg bg-[#F8F6F0] flex items-center justify-center text-[#8C6239]">
             <DollarSign className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-[#E6DFD5] shadow-2xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-[#6E665D]">Estandarización</p>
-            <p className="text-xl font-bold text-[#2E7D32] mt-0.5">100% ISU</p>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32]">
-            <Sparkles className="w-5 h-5" />
           </div>
         </div>
       </div>
@@ -281,7 +271,7 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
                   Vista Previa para Impresión / Exportación PDF
                 </h3>
                 <p className="text-xs text-[#6E665D]">
-                  Formato idéntico al recetario estandarizado ISU con logotipo oficial Migalia.
+                  Ficha técnica estandarizada y costeada con logotipo oficial Migalia.
                 </p>
               </div>
               <div className="flex items-center gap-2">
