@@ -657,14 +657,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 </div>
               </div>
 
-              {/* Mensaje de confirmación de API de Drive */}
-              <div className="p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-[11px] text-emerald-900 leading-relaxed flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <p>
-                  El archivo se creará <strong>automáticamente con su nombre oficial dentro de la carpeta de Drive de Migalia</strong> y se abrirá al instante.
-                </p>
-              </div>
-
               {createError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-700 leading-relaxed">
                   ⚠️ {createError}
@@ -687,7 +679,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 type="button"
                 disabled={isCreating}
                 onClick={handleConfirmCreate}
-                className={`flex items-center gap-2 px-5 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm ${
+                className={`flex items-center gap-2 px-6 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm ${
                   createType === 'google_sheet'
                     ? 'bg-[#0F9D58] hover:bg-emerald-700'
                     : 'bg-[#4285F4] hover:bg-blue-600'
@@ -696,13 +688,10 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 {isCreating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Creando en Google Drive...</span>
+                    <span>Creando...</span>
                   </>
                 ) : (
-                  <>
-                    <span>Crear en Google Drive</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </>
+                  <span>Crear</span>
                 )}
               </button>
             </div>
