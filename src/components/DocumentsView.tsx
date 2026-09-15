@@ -54,8 +54,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   onSaveDocument,
   onDeleteDocument,
 }) => {
-  // Pestaña activa principal: 'sheets' (Hojas de cálculo) | 'docs' (Documentos) | 'drive' (Explorador Google Drive)
-  const [activeMainTab, setActiveMainTab] = useState<'all' | 'sheets' | 'docs' | 'drive'>('all');
+  const [activeMainTab, setActiveMainTab] = useState<'all' | 'sheets' | 'docs'>('all');
   const [selectedFolder, setSelectedFolder] = useState<'all' | DocumentFolder>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDoc, setActiveDoc] = useState<MigaliaDocument | null>(null);
@@ -206,63 +205,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Principal: Google Workspace & Drive Explorer */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center -space-x-1.5 p-2 bg-stone-50 border border-stone-200 rounded-xl shadow-xs">
-              <FileSpreadsheet className="w-5 h-5 text-[#0F9D58]" />
-              <FileText className="w-5 h-5 text-[#4285F4]" />
-              <FolderOpen className="w-5 h-5 text-[#FBBC04]" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-serif font-bold text-stone-900 tracking-tight">
-                Google Workspace & Drive
-              </h1>
-              <span className="text-[11px] font-bold text-[#0F9D58] uppercase tracking-wider">
-                Google Sheets · Google Docs · Carpeta Oficial en Drive
-              </span>
-            </div>
-          </div>
-          <p className="text-xs sm:text-sm text-stone-500 mt-1.5 max-w-2xl">
-            Accede a todas tus hojas de cálculo, actas y al repositorio centralizado de Google Drive de Migalia desde un solo lugar.
-          </p>
-        </div>
-
-        {/* Acciones directas */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <a
-            href={MIGALIA_DRIVE_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold transition"
-            title="Abrir la carpeta oficial en Google Drive"
-          >
-            <FolderOpen className="w-3.5 h-3.5 text-amber-600" />
-            <span>Abrir Drive Oficial</span>
-            <ExternalLink className="w-3 h-3 text-amber-600" />
-          </a>
-
-          <button
-            onClick={() => handleOpenCreateModal('google_sheet')}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#0F9D58] hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Google Sheet</span>
-          </button>
-
-          <button
-            onClick={() => handleOpenCreateModal('google_doc')}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#4285F4] hover:bg-blue-600 text-white rounded-xl text-xs font-semibold transition shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Google Doc</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Selector de Pestañas Principales: Todos | Sheets | Docs | Explorador de Drive */}
-      <div className="flex items-center justify-between border-b border-stone-200 pb-2">
+      {/* Barra de Acciones y Pestañas de Archivos */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-stone-200 pb-3">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveMainTab('all')}
@@ -307,89 +251,42 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               {docsCount}
             </span>
           </button>
+        </div>
+
+        {/* Acciones directas */}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <a
+            href={MIGALIA_DRIVE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold transition"
+            title="Abrir la carpeta oficial en Google Drive"
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-amber-600" />
+            <span>Abrir Drive Oficial</span>
+            <ExternalLink className="w-3 h-3 text-amber-600" />
+          </a>
 
           <button
-            onClick={() => setActiveMainTab('drive')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeMainTab === 'drive'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-stone-600 hover:bg-amber-50 hover:text-amber-800'
-            }`}
+            onClick={() => handleOpenCreateModal('google_sheet')}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#0F9D58] hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
           >
-            <FolderOpen className="w-4 h-4" />
-            <span>Carpeta Drive (En Vivo)</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Google Sheet</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenCreateModal('google_doc')}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#4285F4] hover:bg-blue-600 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Google Doc</span>
           </button>
         </div>
       </div>
 
-      {/* VISTA 1: EXPLORADOR DRIVE EN VIVO */}
-      {activeMainTab === 'drive' && (
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden flex flex-col">
-          {/* Barra superior informativa de Drive */}
-          <div className="p-4 bg-amber-50/70 border-b border-stone-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white border border-amber-200 text-amber-700 rounded-xl shadow-2xs">
-                <FolderOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-serif font-bold text-stone-900 text-base">
-                  Carpeta Oficial de Migalia en Google Drive
-                </h3>
-                <p className="text-xs text-stone-600">
-                  ID: <code className="bg-white px-1.5 py-0.5 rounded border border-amber-200 font-mono text-[11px]">{MIGALIA_DRIVE_FOLDER_ID}</code>
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <a
-                href={MIGALIA_DRIVE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold transition inline-flex items-center gap-2 shadow-xs"
-              >
-                <span>Abrir en Google Drive</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-
-          {/* Advertencia amigable de autenticación Google */}
-          <div className="px-4 py-2.5 bg-stone-50 border-b border-stone-200 flex items-center justify-between text-xs text-stone-600">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                Google Drive requiere que hayas iniciado sesión con tu cuenta de Google en este navegador para ver el contenido de la carpeta.
-              </span>
-            </div>
-            <a
-              href={MIGALIA_DRIVE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs font-bold text-amber-700 hover:underline shrink-0 hidden md:inline"
-            >
-              Abrir en pestaña nueva ↗
-            </a>
-          </div>
-
-          {/* Iframe oficial de la carpeta de Drive */}
-          <div className="w-full h-[650px] bg-stone-100 relative">
-            <iframe
-              src={MIGALIA_DRIVE_EMBED_URL}
-              className="w-full h-full border-0"
-              title="Google Drive Migalia Folder"
-              allow="clipboard-read; clipboard-write"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* VISTA 2: LISTADO DE HOJAS Y DOCUMENTOS VINCULADOS */}
-      {activeMainTab !== 'drive' && (
-        <>
-          {/* Selector de Carpetas temáticas y Buscador */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      {/* Selector de Carpetas temáticas y Buscador */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
               <button
                 onClick={() => setSelectedFolder('all')}
@@ -611,8 +508,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               })}
             </div>
           )}
-        </>
-      )}
 
       {/* Modal Visor / Vinculador de Google Sheets o Google Docs */}
       {isModalOpen && (
