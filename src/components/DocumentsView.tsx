@@ -20,6 +20,7 @@ import {
   Sparkles,
   Pin,
   Check,
+  Loader2,
 } from 'lucide-react';
 
 interface DocumentsViewProps {
@@ -55,6 +56,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [createType, setCreateType] = useState<'google_sheet' | 'google_doc'>('google_sheet');
   const [createTitle, setCreateTitle] = useState('');
   const [createFolder, setCreateFolder] = useState<DocumentFolder>('Finanzas & Inversión');
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Modal para ver/editar un documento existente
   const [editingDoc, setEditingDoc] = useState<MigaliaDocument | null>(null);
@@ -110,42 +113,63 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         ? 'Finanzas & Inversión'
         : 'Legal & Constitución'
     );
+    setCreateError(null);
+    setIsCreating(false);
     setIsCreateModalOpen(true);
   };
 
   /**
-   * Al crear:
-   * 1. Guarda el registro clasificado con su categoría (Legal, Branding, Finanzas, etc.).
-   * 2. Copia automáticamente el nombre al portapapeles del socio para que solo presione Ctrl+V en Google.
-   * 3. Abre directamente la Carpeta Oficial de Migalia en Drive para que al pulsar "+ Nuevo",
-   *    Google garantice que el archivo quede guardado DENTRO de la carpeta de Migalia.
+   * Creación 100% Automática vía Google Drive API:
+   * 1. Llama al endpoint /api/drive/create.
+   * 2. Google Drive crea el archivo con su nombre oficial DENTRO de la carpeta de Migalia.
+   * 3. Registra el documento en la base de datos con su URL real de Google.
+   * 4. Abre el archivo recién creado directamente en una nueva pestaña.
    */
-  const handleConfirmCreate = () => {
+  const handleConfirmCreate = async () => {
     const title = createTitle.trim() || (createType === 'google_sheet' ? 'Nueva Hoja de Cálculo' : 'Nuevo Documento');
+    setIsCreating(true);
+    setCreateError(null);
 
-    // Copiar el nombre al portapapeles
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(title).catch(() => {});
+    try {
+      const res = await fetch('/api/drive/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          type: createType,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Error al crear archivo en Google Drive');
+      }
+
+      const newDoc: MigaliaDocument = {
+        id: 'doc-' + Date.now(),
+        title: data.name || title,
+        type: createType,
+        folder: createFolder,
+        content: data.url,
+        googleUrl: data.url,
+        authorName: currentPartnerName || 'Mario',
+        createdAt: new Date().toISOString().split('T')[0],
+        updatedAt: new Date().toISOString().split('T')[0],
+        isPinned: false,
+      };
+
+      onSaveDocument(newDoc);
+      setIsCreateModalOpen(false);
+
+      // Abrir directamente el documento recién creado en Google Drive
+      window.open(data.url, '_blank');
+    } catch (err: any) {
+      console.error('Error al crear archivo en Google Drive:', err);
+      setCreateError(err.message || 'No se pudo crear el archivo en Drive');
+    } finally {
+      setIsCreating(false);
     }
-
-    const newDoc: MigaliaDocument = {
-      id: 'doc-' + Date.now(),
-      title,
-      type: createType,
-      folder: createFolder,
-      content: MIGALIA_DRIVE_URL,
-      googleUrl: MIGALIA_DRIVE_URL,
-      authorName: currentPartnerName || 'Mario',
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-      isPinned: false,
-    };
-
-    onSaveDocument(newDoc);
-    setIsCreateModalOpen(false);
-
-    // Abrir directamente la carpeta oficial de Drive de Migalia
-    window.open(MIGALIA_DRIVE_URL, '_blank');
   };
 
   const handleOpenEdit = (doc: MigaliaDocument) => {
@@ -633,35 +657,53 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 </div>
               </div>
 
-              {/* Nota explicativa de Drive */}
-              <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+              {/* Mensaje de confirmación de API de Drive */}
+              <div className="p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-[11px] text-emerald-900 leading-relaxed flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <p>
-                  💡 Al hacer clic, se copiará el nombre del archivo y se abrirá la <strong>Carpeta Oficial de Migalia</strong> para que al pulsar <em>«+ Nuevo»</em> el archivo quede guardado directamente adentro.
+                  El archivo se creará <strong>automáticamente con su nombre oficial dentro de la carpeta de Drive de Migalia</strong> y se abrirá al instante.
                 </p>
               </div>
+
+              {createError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-700 leading-relaxed">
+                  ⚠️ {createError}
+                </div>
+              )}
             </div>
 
             {/* Botón de Confirmación y Creación */}
             <div className="mt-6 flex items-center justify-end gap-2 pt-3 border-t border-stone-150">
               <button
                 type="button"
+                disabled={isCreating}
                 onClick={() => setIsCreateModalOpen(false)}
-                className="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-xl text-xs font-semibold transition"
+                className="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-xl text-xs font-semibold transition disabled:opacity-50"
               >
                 Cancelar
               </button>
 
               <button
                 type="button"
+                disabled={isCreating}
                 onClick={handleConfirmCreate}
-                className={`flex items-center gap-1.5 px-5 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm ${
+                className={`flex items-center gap-2 px-5 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm ${
                   createType === 'google_sheet'
                     ? 'bg-[#0F9D58] hover:bg-emerald-700'
                     : 'bg-[#4285F4] hover:bg-blue-600'
-                }`}
+                } disabled:opacity-75 disabled:cursor-wait`}
               >
-                <span>Crear en Carpeta de Migalia</span>
-                <ExternalLink className="w-3.5 h-3.5" />
+                {isCreating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Creando en Google Drive...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Crear en Google Drive</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </>
+                )}
               </button>
             </div>
           </div>
