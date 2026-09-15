@@ -397,25 +397,29 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F6F0]">
       {/* Top Navigation */}
-      <Navbar
-        currentFilter={selectedPartnerFilter}
-        onFilterChange={setSelectedPartnerFilter}
-        partners={partners}
-        currentPartner={currentPartner}
-        onLogout={handleLogout}
-      />
-
-      <div className="flex-1 flex flex-col md:flex-row">
-        {/* Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          counts={counts}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+      <div className="print:hidden">
+        <Navbar
+          currentFilter={selectedPartnerFilter}
+          onFilterChange={setSelectedPartnerFilter}
+          partners={partners}
+          currentPartner={currentPartner}
+          onLogout={handleLogout}
         />
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row print:block">
+        {/* Sidebar */}
+        <div className="print:hidden shrink-0">
+          <Sidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            counts={counts}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+          />
+        </div>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto print:p-0 print:overflow-visible">
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
               <div className="flex justify-end">

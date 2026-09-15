@@ -47,3 +47,43 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #C4BAAA;
 }
+
+/* Reglas de Impresión y Exportación a PDF */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 10mm;
+  }
+
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ocultar toda la interfaz de la app durante la impresión */
+  header,
+  aside,
+  nav,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Asegurar que el contenedor de la receta ocupe toda la página */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  .print-only-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #FFFFFF !important;
+  }
+}

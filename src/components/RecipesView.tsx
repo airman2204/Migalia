@@ -55,7 +55,9 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Contenido interactivo visible en pantalla, oculto en impresión */}
+      <div className="space-y-6 print:hidden">
+        {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -260,10 +262,11 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
           })}
         </div>
       )}
+      </div>
 
       {/* Modal / Overlay para Impresión de Receta Individual */}
       {printRecipe && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 print:p-0 print:bg-white print:static overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 print:p-0 print:bg-white print:static print-only-container overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-4xl p-6 print:p-0 print:border-none print:shadow-none shadow-2xl relative my-auto">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E6DFD5] print:hidden">
               <div>
@@ -300,7 +303,7 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
 
       {/* Modal / Overlay para Impresión del Recetario Completo */}
       {isPrintAllOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 print:p-0 print:bg-white print:static overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 print:p-0 print:bg-white print:static print-only-container overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-4xl p-6 print:p-0 print:border-none print:shadow-none shadow-2xl relative my-auto">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E6DFD5] print:hidden">
               <div>
@@ -308,7 +311,7 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
                   Recetario Completo Migalia ({recipes.length} Recetas)
                 </h3>
                 <p className="text-xs text-[#6E665D]">
-                  Se generărá una pégina por receta lista para encuadernar o descargar en PDF.
+                  Se generará una página por receta lista para encuadernar o descargar en PDF.
                 </p>
               </div>
               <div className="flex items-center gap-2">
