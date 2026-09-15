@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { MigaliaDocument, DocumentFolder, DocumentType } from '@/types';
 import {
   FileText,
@@ -39,6 +39,11 @@ const FOLDERS: DocumentFolder[] = [
   'General',
 ];
 
+/**
+ * Vista del Gestor de Documentos & Integrador de Google Workspace.
+ * Permite filtrar por carpetas de negocio, buscar en tiempo real y embeber
+ * hojas de cálculo (Google Sheets) y documentos de texto oficiales (Google Docs).
+ */
 export const DocumentsView: React.FC<DocumentsViewProps> = ({
   documents,
   currentPartnerName,
@@ -58,14 +63,20 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [editType, setEditType] = useState<DocumentType>('google_sheet');
   const [editUrl, setEditUrl] = useState('');
 
-  const filteredDocs = documents.filter((d) => {
-    const matchFolder = selectedFolder === 'all' || d.folder === selectedFolder;
-    const matchSearch =
-      d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.folder.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (d.authorName || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchFolder && matchSearch;
-  });
+  // Filtrado reactivo optimizado con useMemo
+  const filteredDocs = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return documents.filter((d) => {
+      const matchFolder = selectedFolder === 'all' || d.folder === selectedFolder;
+      if (!matchFolder) return false;
+      if (!term) return true;
+      return (
+        d.title.toLowerCase().includes(term) ||
+        d.folder.toLowerCase().includes(term) ||
+        (d.authorName || '').toLowerCase().includes(term)
+      );
+    });
+  }, [documents, selectedFolder, searchTerm]);
 
   const handleOpenCreateModal = (type: DocumentType) => {
     setNewDocTypeModal(false);

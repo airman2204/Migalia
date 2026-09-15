@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Task, Recipe, LogbookEntry, Milestone, Partner, MigaliaDocument } from '@/types';
 import {
   Sparkles,
@@ -25,6 +25,12 @@ interface MigaAIViewProps {
 
 type AIMode = 'dossier' | 'marketing' | 'chat';
 
+/**
+ * Miga AI: Copiloto de Inteligencia de Negocio y Estrategia de Marketing.
+ * Procesa el estado vivo del sistema (actividades, recetario con escandallo, finanzas y bitácora)
+ * para compilar dossiers ejecutivos formales (exportables a PDF), kits de lanzamiento y resolver
+ * consultas interactivas.
+ */
 export const MigaAIView: React.FC<MigaAIViewProps> = ({
   tasks,
   recipes,
@@ -49,21 +55,47 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
   ]);
   const [isThinking, setIsThinking] = useState(false);
 
-  // Cálculos consolidados en tiempo real del sistema
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((t) => t.status === 'done').length;
-  const inProgressTasks = tasks.filter((t) => t.status === 'in_progress').length;
-  const blockedTasks = tasks.filter((t) => t.isBlocked);
-  const operationalProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  // Métricas financieras y operativas consolidadas con useMemo
+  const metrics = useMemo(() => {
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter((t) => t.status === 'done').length;
+    const inProgressTasks = tasks.filter((t) => t.status === 'in_progress').length;
+    const blockedTasks = tasks.filter((t) => t.isBlocked);
+    const operationalProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  const totalEstimatedCost = tasks.reduce((acc, t) => acc + (t.estimatedCost || 0), 0);
-  const totalActualCost = tasks.reduce((acc, t) => acc + (t.actualCost || 0), 0);
-  const remainingBudget = budget - totalActualCost;
+    const totalEstimatedCost = tasks.reduce((acc, t) => acc + (t.estimatedCost || 0), 0);
+    const totalActualCost = tasks.reduce((acc, t) => acc + (t.actualCost || 0), 0);
+    const remainingBudget = budget - totalActualCost;
+
+    return {
+      totalTasks,
+      completedTasks,
+      inProgressTasks,
+      blockedTasks,
+      operationalProgress,
+      totalEstimatedCost,
+      totalActualCost,
+      remainingBudget,
+    };
+  }, [tasks, budget]);
+
+  const {
+    totalTasks,
+    completedTasks,
+    inProgressTasks,
+    blockedTasks,
+    operationalProgress,
+    totalEstimatedCost,
+    totalActualCost,
+    remainingBudget,
+  } = metrics;
 
   // Estadísticas del Recetario Oficial
   const totalRecipes = recipes.length;
-  const getRecipeTotalCost = (r: Recipe) =>
-    r.ingredients.reduce((acc, ing) => acc + (ing.totalCost || 0), 0);
+  const getRecipeTotalCost = useCallback(
+    (r: Recipe) => r.ingredients.reduce((acc, ing) => acc + (ing.totalCost || 0), 0),
+    []
+  );
 
   const handleCopyText = (text: string) => {
     navigator.clipboard.writeText(text);

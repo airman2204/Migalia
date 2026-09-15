@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar, ActiveTab } from '@/components/Sidebar';
 import { DashboardView } from '@/components/DashboardView';
@@ -201,12 +201,14 @@ export default function Home() {
     localStorage.removeItem('migalia_auth_partner');
   };
 
-  // Filtrado por socio ("Mi Espacio" vs "Global")
-  const displayedTasks = tasks.filter((task) => {
-    if (selectedPartnerFilter === 'all') return true;
-    const assigned = (task.assignedTo || '').split(',').map((s) => s.trim());
-    return assigned.includes(selectedPartnerFilter);
-  });
+  // Filtrado optimizado por socio ("Mi Espacio" vs "Global") con useMemo
+  const displayedTasks = useMemo(() => {
+    if (selectedPartnerFilter === 'all') return tasks;
+    return tasks.filter((task) => {
+      const assigned = (task.assignedTo || '').split(',').map((s) => s.trim());
+      return assigned.includes(selectedPartnerFilter);
+    });
+  }, [tasks, selectedPartnerFilter]);
 
   // 2. Operaciones con Tareas en Supabase
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
@@ -428,14 +430,18 @@ export default function Home() {
     }
   };
 
-  const counts = {
-    total: displayedTasks.length,
-    inProgress: displayedTasks.filter((t) => t.status === 'in_progress').length,
-    logbook: logbook.length,
-    milestones: milestones.length,
-    recipes: recipes.length,
-    documents: documents.length,
-  };
+  // Cálculo memorizado de contadores para evitar renderizados innecesarios del Sidebar
+  const counts = useMemo(
+    () => ({
+      total: displayedTasks.length,
+      inProgress: displayedTasks.filter((t) => t.status === 'in_progress').length,
+      logbook: logbook.length,
+      milestones: milestones.length,
+      recipes: recipes.length,
+      documents: documents.length,
+    }),
+    [displayedTasks, logbook.length, milestones.length, recipes.length, documents.length]
+  );
 
   if (isLoaded && !currentPartner) {
     return <LoginScreen partners={partners} onLogin={handleLogin} />;
