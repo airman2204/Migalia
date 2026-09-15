@@ -93,7 +93,7 @@ export interface Recipe {
   updatedAt?: string;
 }
 
-export type DocumentType = 'doc' | 'sheet' | 'google_embed';
+export type DocumentType = 'google_sheet' | 'google_doc' | 'google_embed' | 'doc' | 'sheet';
 export type DocumentFolder =
   | 'Legal & Constitución'
   | 'Finanzas & Inversión'
@@ -106,7 +106,8 @@ export interface MigaliaDocument {
   title: string;
   type: DocumentType;
   folder: DocumentFolder;
-  content: string; // Para Docs: HTML/Markdown; Para Sheets: JSON string de celdas; Para Google: URL embed
+  content: string; // Para Docs/Sheets de Google: URL o HTML de respaldo; Para Google: URL embed
+  googleUrl?: string; // Enlace directo a Google Drive / Docs / Sheets
   authorId?: string;
   authorName?: string;
   createdAt: string;
