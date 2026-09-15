@@ -19,6 +19,7 @@ import { DocumentsView } from '@/components/DocumentsView';
 import { MigaAIView } from '@/components/MigaAIView';
 import { PartnersChatDrawer } from '@/components/PartnersChatDrawer';
 import { MeetingRoomModal } from '@/components/MeetingRoomModal';
+import { MeetingsCalendarModal } from '@/components/MeetingsCalendarModal';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -29,7 +30,16 @@ import {
   INITIAL_RECIPES,
   INITIAL_DOCUMENTS,
 } from '@/lib/initialData';
-import { Task, LogbookEntry, TaskStatus, Milestone, Partner, Recipe, MigaliaDocument } from '@/types';
+import {
+  Task,
+  LogbookEntry,
+  TaskStatus,
+  Milestone,
+  Partner,
+  Recipe,
+  MigaliaDocument,
+  ScheduledMeeting,
+} from '@/types';
 
 export default function Home() {
   // Autenticación de Socio Activo
@@ -43,6 +53,27 @@ export default function Home() {
   const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
   const [documents, setDocuments] = useState<MigaliaDocument[]>(INITIAL_DOCUMENTS);
   const [budget, setBudget] = useState<number>(250000);
+  const [meetings, setMeetings] = useState<ScheduledMeeting[]>(() => {
+    try {
+      const local = localStorage.getItem('migalia_scheduled_meetings');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [
+      {
+        id: 'meet-1',
+        title: 'Alineación Semanal: Proveedores de Horno & Contrato de Local',
+        date: new Date().toISOString().split('T')[0],
+        time: '17:00',
+        attendees: 'Mario Alberto González Cervantes & Susy',
+        status: 'scheduled',
+        topics: 'Revisión de tiempo de entrega del horno eléctrico y visto bueno de las cláusulas para notaría.',
+        createdAt: '2026-09-15',
+      },
+    ];
+  });
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Modales
@@ -53,6 +84,8 @@ export default function Home() {
   const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isGlobalMeetingOpen, setIsGlobalMeetingOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [activeMeetingData, setActiveMeetingData] = useState<Partial<ScheduledMeeting> | null>(null);
   const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
 
   // Navegación y Filtros
@@ -424,6 +457,33 @@ export default function Home() {
     });
   };
 
+  // 8. Operaciones del Calendario Interno de Sesiones
+  const handleAddMeeting = (meetingData: Omit<ScheduledMeeting, 'id' | 'createdAt'>) => {
+    const newMeeting: ScheduledMeeting = {
+      ...meetingData,
+      id: 'meet-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    setMeetings((prev) => {
+      const updated = [newMeeting, ...prev];
+      try {
+        localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleDeleteMeeting = (meetingId: string) => {
+    setMeetings((prev) => {
+      const updated = prev.filter((m) => m.id !== meetingId);
+      try {
+        localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   // Vaciar y empezar desde cero en Supabase
   const handleResetToZero = async () => {
     if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
@@ -462,6 +522,8 @@ export default function Home() {
           currentPartner={currentPartner}
           onLogout={handleLogout}
           onOpenChat={() => setIsChatOpen(true)}
+          onOpenCalendar={() => setIsCalendarOpen(true)}
+          onLaunchStudio={() => setIsGlobalMeetingOpen(true)}
         />
       </div>
 
@@ -649,17 +711,37 @@ export default function Home() {
         onClose={() => setIsChatOpen(false)}
         currentPartner={currentPartner}
         partners={partners}
-        onLaunchMeeting={() => {
+        onLaunchMeeting={(title) => {
           setIsChatOpen(false);
+          setActiveMeetingData(title ? { title } : null);
           setIsGlobalMeetingOpen(true);
         }}
       />
 
-      {/* Sala de Sesión / Meet Global */}
+      {/* Calendario Interno de Sesiones */}
+      <MeetingsCalendarModal
+        isOpen={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
+        partners={partners}
+        meetings={meetings}
+        onAddMeeting={handleAddMeeting}
+        onDeleteMeeting={handleDeleteMeeting}
+        onLaunchMeeting={(m) => {
+          setActiveMeetingData(m);
+          setIsGlobalMeetingOpen(true);
+        }}
+      />
+
+      {/* Sala de Sesión WebRTC Nativa (Migalia Calls Studio) con Miga AI */}
       <MeetingRoomModal
         isOpen={isGlobalMeetingOpen}
-        onClose={() => setIsGlobalMeetingOpen(false)}
+        onClose={() => {
+          setIsGlobalMeetingOpen(false);
+          setActiveMeetingData(null);
+        }}
         partners={partners}
+        currentPartner={currentPartner}
+        meetingData={activeMeetingData}
         onSaveMinuta={handleAddLogbookEntry}
       />
     </div>

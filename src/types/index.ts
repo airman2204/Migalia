@@ -212,3 +212,19 @@ export interface ChatMessage {
   meetingTitle?: string;
 }
 
+/**
+ * Sesión de trabajo programada en el Calendario Interno de Migalia.
+ */
+export interface ScheduledMeeting {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM (ej. "17:00")
+  attendees: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'canceled';
+  topics?: string;
+  minutaContent?: string;
+  createdAt: string;
+}
+
+

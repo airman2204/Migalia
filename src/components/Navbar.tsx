@@ -1,6 +1,6 @@
 import React from 'react';
 import { Partner } from '@/types';
-import { User, Users, Plus, LogOut, MessageSquare } from 'lucide-react';
+import { User, Users, Plus, LogOut, MessageSquare, Calendar, Video } from 'lucide-react';
 
 interface NavbarProps {
   currentFilter: 'all' | string;
@@ -9,6 +9,8 @@ interface NavbarProps {
   currentPartner: Partner | null;
   onLogout: () => void;
   onOpenChat?: () => void;
+  onOpenCalendar?: () => void;
+  onLaunchStudio?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,6 +20,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentPartner,
   onLogout,
   onOpenChat,
+  onOpenCalendar,
+  onLaunchStudio,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/90 backdrop-blur-md border-b border-[#E6DFD5] px-4 lg:px-8 py-3.5 transition-all">
@@ -68,7 +72,29 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {onOpenCalendar && (
+            <button
+              onClick={onOpenCalendar}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#EBE7DF] text-[#221F1D] border border-[#DDD5C7] rounded-full text-xs font-semibold transition shadow-2xs"
+              title="Calendario Interno de Sesiones"
+            >
+              <Calendar className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden md:inline">Calendario</span>
+            </button>
+          )}
+
+          {onLaunchStudio && (
+            <button
+              onClick={onLaunchStudio}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-full text-xs font-bold transition shadow-xs"
+              title="Iniciar Sesión WebRTC Nativa"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Llamada</span>
+            </button>
+          )}
+
           {onOpenChat && (
             <button
               onClick={onOpenChat}
@@ -76,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Abrir Chat Interno de Socios"
             >
               <MessageSquare className="w-3.5 h-3.5 text-[#C59B27]" />
-              <span className="hidden sm:inline">Chat Socios</span>
+              <span className="hidden sm:inline">Chat</span>
             </button>
           )}
 

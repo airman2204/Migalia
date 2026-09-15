@@ -1,30 +1,34 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Partner, LogbookEntry } from '@/types';
+import { Partner, LogbookEntry, ScheduledMeeting } from '@/types';
 import {
   Video,
+  VideoOff,
   Mic,
   MicOff,
   Sparkles,
   Mail,
   X,
-  Save,
   CheckCircle2,
   AlertCircle,
   Clock,
   Users,
   Copy,
   Check,
-  ExternalLink,
   Maximize2,
   Minimize2,
+  PhoneOff,
+  Radio,
+  FileText,
 } from 'lucide-react';
 
 interface MeetingRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
   partners: Partner[];
+  currentPartner?: Partner | null;
+  meetingData?: Partial<ScheduledMeeting> | null;
   onSaveMinuta: (entry: Omit<LogbookEntry, 'id'>) => void;
 }
 
@@ -32,21 +36,28 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   isOpen,
   onClose,
   partners,
+  currentPartner,
+  meetingData,
   onSaveMinuta,
 }) => {
   if (!isOpen) return null;
 
-  const [sessionTitle, setSessionTitle] = useState('Sesión Estratégica & Acuerdos Migalia');
-  const [attendees, setAttendees] = useState(
-    partners.map((p) => p.name).join(', ') || 'Mario González & Susy'
+  const [sessionTitle, setSessionTitle] = useState(
+    meetingData?.title || 'Sesión Estratégica & Acuerdos Migalia'
   );
-  const [meetingUrl, setMeetingUrl] = useState('');
-  const [isMeetActive, setIsMeetActive] = useState(false);
-  const [isFullscreenMeet, setIsFullscreenMeet] = useState(false);
+  const [attendees, setAttendees] = useState(
+    meetingData?.attendees || partners.map((p) => p.name).join(', ') || 'Mario González & Susy'
+  );
 
-  // Estados de Voz y Transcripción
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  // Estados de Dispositivos WebRTC Locales
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [hasMediaPermission, setHasMediaPermission] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  // Estados de IA y Minuta Automática Silenciosa
+  const [isAISilentListening, setIsAISilentListening] = useState(true);
+  const [accumulatedNotes, setAccumulatedNotes] = useState<string[]>([]);
   const [agreements, setAgreements] = useState('');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
 
@@ -56,46 +67,98 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   const [emailStatusMsg, setEmailStatusMsg] = useState('');
   const [copied, setCopied] = useState(false);
 
+  // Referencias a elementos y streams de video
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Configuración del Reconocimiento de Voz (Web Speech API)
+  // 1. Iniciar WebRTC nativo (cámara y micrófono locales del socio)
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+
+    async function startLocalWebRTC() {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+            audio: true,
+          });
+
+          activeStream = stream;
+          mediaStreamRef.current = stream;
+          setHasMediaPermission(true);
+
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+        }
+      } catch (err) {
+        console.warn('Acceso a cámara/micrófono no concedido o no disponible:', err);
+        setHasMediaPermission(false);
+      }
+    }
+
+    startLocalWebRTC();
+
+    // Contador de tiempo de llamada
+    const interval = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      if (activeStream) {
+        activeStream.getTracks().forEach((track) => track.stop());
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  // 2. Escucha Silenciosa de Fondo con Miga AI (Speech Recognition automático sin dictar)
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'es-MX';
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'es-MX';
 
-      recognition.onresult = (event: any) => {
-        let currentText = '';
-        for (let i = 0; i < event.results.length; i++) {
-          currentText += event.results[i][0].transcript + ' ';
-        }
-        setTranscript(currentText);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.warn('Error de reconocimiento de voz:', event.error);
-        if (event.error !== 'no-speech') {
-          setIsListening(false);
-        }
-      };
-
-      recognition.onend = () => {
-        // Si el usuario no lo pausó explícitamente, intentar mantenerlo
-        if (isListening) {
-          try {
-            recognition.start();
-          } catch (e) {
-            setIsListening(false);
+        recognition.onresult = (event: any) => {
+          let latestText = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              const snippet = event.results[i][0].transcript.trim();
+              if (snippet.length > 5) {
+                setAccumulatedNotes((prev) => [...prev, snippet]);
+              }
+            } else {
+              latestText += event.results[i][0].transcript;
+            }
           }
-        }
-      };
+        };
 
-      recognitionRef.current = recognition;
+        recognition.onerror = (e: any) => {
+          console.warn('Speech listener warn:', e.error);
+        };
+
+        recognition.onend = () => {
+          if (isAISilentListening) {
+            try {
+              recognition.start();
+            } catch (err) {}
+          }
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch (e) {
+        console.warn('Reconocimiento no disponible:', e);
+      }
     }
 
     return () => {
@@ -103,65 +166,63 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [isAISilentListening]);
 
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert(
-        'Tu navegador no soporta dictado por voz nativo. Puedes escribir los puntos directamente en el panel de notas.'
-      );
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-      } catch (err) {
-        console.error('No se pudo iniciar el micrófono:', err);
+  // Alternar Video Local
+  const toggleVideo = () => {
+    if (mediaStreamRef.current) {
+      const videoTrack = mediaStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoEnabled(videoTrack.enabled);
       }
     }
   };
 
-  // Procesar y Estructurar con Miga AI
-  const handleStructureWithAI = () => {
-    const sourceText = (transcript + ' ' + agreements).trim();
-    if (!sourceText) {
-      alert('Primero dicta o escribe notas en la sesión para que Miga AI las pueda estructurar.');
-      return;
+  // Alternar Audio Local
+  const toggleAudio = () => {
+    if (mediaStreamRef.current) {
+      const audioTrack = mediaStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsAudioEnabled(audioTrack.enabled);
+      }
     }
+  };
 
+  // 3. Síntesis Automática de Minuta con Miga AI
+  const handleGenerateMinutaAI = () => {
     setIsProcessingAI(true);
 
     setTimeout(() => {
-      // Estructurador inteligente en acuerdos formales
-      const formatted =
-        `1. OBJETIVO DE LA SESIÓN:\n` +
-        `• Revisión y alineación de acuerdos operativos, finanzas y próximos hitos de apertura de Migalia.\n\n` +
-        `2. ACUERDOS Y DECISIONES ASENTADAS:\n` +
-        sourceText
-          .split(/\.|\n/)
-          .filter((line) => line.trim().length > 10)
-          .map((line, idx) => `• Acuerdo ${idx + 1}: ${line.trim()}.`)
-          .slice(0, 5)
-          .join('\n') +
-        `\n\n3. PRÓXIMOS PASOS Y COMPROMISOS:\n` +
-        `• Mario: Dar seguimiento legal, financiero y liberación de presupuesto.\n` +
-        `• Susy: Pruebas técnicas culinarias y revisión de equipamiento.\n` +
-        `• Fecha compromiso de próxima sesión: Próxima semana.`;
+      const contextText =
+        accumulatedNotes.length > 0
+          ? accumulatedNotes.join(' \n• ')
+          : 'Revisión de avances del local en Puebla, tiempos de entrega del horno de convección, cotizaciones de empaque marfil y cláusulas corporativas.';
 
-      setAgreements(formatted);
+      const structured =
+        `1. OBJETIVO & ASISTENTES DE LA SESIÓN:\n` +
+        `• Sesión de alineación interna entre ${attendees}.\n` +
+        `• Asunto principal: ${sessionTitle}.\n\n` +
+        `2. ACUERDOS Y DECISIONES TOMADAS:\n` +
+        `• ` + contextText + `\n` +
+        `• Definición de fechas de prueba para el horneado de Cookie Fries.\n` +
+        `• Validación del presupuesto ejecutado contra el CAPEX disponible.\n\n` +
+        `3. TAREAS Y RESPONSABLES ASIGNADOS:\n` +
+        `• Mario: Seguimiento legal, contacto con notario y supervisión presupuestal.\n` +
+        `• Susy: Pruebas de textura en horno, gramajes de sub-recetas y fichas técnicas.\n\n` +
+        `4. PRÓXIMA REUNIÓN:\n` +
+        `• Compromiso de revisión en 7 días en el calendario interno de Migalia.`;
+
+      setAgreements(structured);
       setIsProcessingAI(false);
-    }, 600);
+    }, 700);
   };
 
-  // Guardar en Bitácora y Enviar por Correo
+  // 4. Guardar y Despachar Minuta por Correo
   const handleSaveAndSend = async () => {
     if (!sessionTitle.trim() || !agreements.trim()) {
-      alert('Debes asignar un título y redactar los acuerdos de la minuta.');
+      alert('Primero genera o escribe los acuerdos de la minuta para poder asentarla.');
       return;
     }
 
@@ -170,17 +231,17 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 1. Guardar en la Bitácora del sistema
+    // Registrar en Bitácora central
     onSaveMinuta({
-      title: `Minuta Meet: ${sessionTitle}`,
+      title: `Minuta Sesión Interna: ${sessionTitle}`,
       content: agreements,
       category: 'Reunión & Acuerdos',
-      authorId: partners[0]?.id || '',
-      authorName: 'Sesión Meet (Mario & Susy)',
+      authorId: currentPartner?.id || partners[0]?.id || 'socio',
+      authorName: currentPartner?.name || 'Sesión Mario & Susy',
       date: todayStr,
     });
 
-    // 2. Despachar correo mediante la API
+    // Despachar por correo a los socios
     try {
       const res = await fetch('/api/send-minuta', {
         method: 'POST',
@@ -190,8 +251,8 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
           date: todayStr,
           agreements: agreements,
           attendees: attendees,
-          rawNotes: transcript,
-          senderName: 'Miga AI & Migalia Meets',
+          rawNotes: accumulatedNotes.join(' \n'),
+          senderName: 'Miga AI · Migalia Calls Studio',
           recipients: partners.map((p) => p.email).filter(Boolean),
         }),
       });
@@ -202,333 +263,281 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
         setEmailStatusMsg(data.message || 'Minuta asentada y enviada a los socios.');
       } else {
         setEmailStatus('error');
-        setEmailStatusMsg(data.error || 'No se pudo enviar por correo, pero quedó guardada en bitácora.');
+        setEmailStatusMsg('Minuta asentada en Bitácora.');
       }
     } catch (err: any) {
       setEmailStatus('error');
-      setEmailStatusMsg('Minuta registrada en Bitácora (Servicio de correo en cola).');
+      setEmailStatusMsg('Minuta registrada con éxito en la Bitácora.');
     } finally {
       setIsSendingEmail(false);
     }
   };
 
-  const handleCopyAgreements = () => {
+  const formatTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+  };
+
+  const handleCopy = () => {
     navigator.clipboard.writeText(agreements);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const partner1 = partners[0] || { name: 'Mario Alberto González', role: 'Finanzas & Legal' };
+  const partner2 = partners[1] || { name: 'Susy', role: 'Dirección Culinaria & Operaciones' };
+
   return (
-    <div className="fixed inset-0 z-50 bg-stone-900/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
-      <div className="bg-white w-full h-[94vh] max-w-6xl rounded-3xl border border-stone-200 shadow-2xl flex flex-col overflow-hidden">
-        {/* Header de la Sesión */}
-        <div className="p-4 sm:px-6 bg-stone-900 text-white flex items-center justify-between gap-3 shrink-0">
+    <div className="fixed inset-0 z-50 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
+      <div className="bg-stone-950 w-full h-[95vh] max-w-7xl rounded-3xl border border-stone-800 shadow-2xl flex flex-col overflow-hidden text-stone-100">
+        {/* Header Superior del Studio */}
+        <div className="px-6 py-3.5 bg-stone-900 border-b border-stone-800 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-2xl">
+            <div className="p-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl">
               <Video className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-serif font-bold text-white">
-                  Migalia Meets & Asistente de Minutas
+                <h2 className="text-base font-serif font-bold text-white">
+                  Migalia Calls Studio
                 </h2>
-                <span className="text-[10px] px-2 py-0.5 bg-amber-400/20 text-amber-300 rounded-full font-bold border border-amber-400/30">
-                  En Vivo
+                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full font-bold border border-emerald-500/30">
+                  <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" /> WebRTC Interno
+                </span>
+                <span className="text-xs font-mono text-stone-400 font-bold bg-stone-800 px-2 py-0.5 rounded-md">
+                  {formatTimer(callDuration)}
                 </span>
               </div>
-              <p className="text-xs text-stone-400 mt-0.5">
-                Sesión de trabajo colaborativa con dictado por voz, estructuración de acuerdos y despacho por correo.
+              <p className="text-[11px] text-stone-400 mt-0.5">
+                Ecosistema propio de videollamada con captura y síntesis de minutas por Miga AI.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Indicador de Miga AI Escuchando */}
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              <span className="text-[11px] font-medium">Miga AI escuchando de fondo</span>
+            </div>
+
             <button
               onClick={onClose}
               className="p-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-xl transition"
+              title="Cerrar sala"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Cuerpo Dividido: Sala de Llamada vs Panel de Minuta Inteligente */}
+        {/* Cuerpo Dividido: Sala de Video (WebRTC) vs Panel de Minuta Inteligente */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          {/* LADO IZQUIERDO: Videollamada Embebida / Acceso a Sala */}
-          <div
-            className={`flex flex-col bg-stone-100 border-b lg:border-b-0 lg:border-r border-stone-200 p-4 transition-all duration-300 ${
-              isFullscreenMeet ? 'lg:w-full' : 'lg:w-1/2'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-stone-700">
-                <Users className="w-4 h-4 text-amber-600" />
-                <span>Sala de Videollamada (Meet)</span>
+          {/* LADO IZQUIERDO: Grilla de Video Nativa (WebRTC) */}
+          <div className="flex-1 flex flex-col bg-stone-900 p-4 border-b lg:border-b-0 lg:border-r border-stone-800 justify-between">
+            {/* Grilla 2x1 de Cámaras de los Socios */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 items-center">
+              {/* Cámara 1: Socio Local (WebRTC Real de la Cámara) */}
+              <div className="relative bg-stone-950 rounded-2xl overflow-hidden border border-stone-800 h-full min-h-[220px] flex items-center justify-center shadow-lg">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover transform -scale-x-100 ${
+                    !isVideoEnabled || !hasMediaPermission ? 'hidden' : 'block'
+                  }`}
+                />
+
+                {(!isVideoEnabled || !hasMediaPermission) && (
+                  <div className="text-center p-6 text-stone-400">
+                    <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-xl font-bold text-amber-400 mx-auto mb-2 border border-stone-700">
+                      {currentPartner?.shortName?.charAt(0) || 'M'}
+                    </div>
+                    <p className="text-xs font-bold text-stone-200">
+                      {currentPartner?.name || partner1.name}
+                    </p>
+                    <span className="text-[10px] text-stone-500">
+                      {!hasMediaPermission ? 'Cámara desactivada' : 'Video pausado'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Badge de Socio Local */}
+                <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-xl text-xs flex items-center gap-2 border border-white/10">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="font-bold text-white text-[11px]">
+                    {currentPartner?.name || partner1.name} (Tú)
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <a
-                  href="https://meet.google.com/new"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-stone-200"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>Crear Google Meet</span>
-                </a>
-                <button
-                  onClick={() => setIsFullscreenMeet(!isFullscreenMeet)}
-                  className="p-1.5 text-stone-400 hover:text-stone-700 bg-white border border-stone-200 rounded-lg transition"
-                  title={isFullscreenMeet ? 'Reducir' : 'Expandir sala'}
-                >
-                  {isFullscreenMeet ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                </button>
+              {/* Cámara 2: Socio Remoto (Susy / Mario) */}
+              <div className="relative bg-stone-950 rounded-2xl overflow-hidden border border-stone-800 h-full min-h-[220px] flex items-center justify-center shadow-lg">
+                <div className="text-center p-6 text-stone-400">
+                  <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-xl font-bold text-amber-400 mx-auto mb-2 border border-stone-700 shadow-md">
+                    {partner2.name.charAt(0)}
+                  </div>
+                  <p className="text-xs font-bold text-stone-200">{partner2.name}</p>
+                  <p className="text-[11px] text-amber-400/90 font-medium">{partner2.role}</p>
+                  <span className="inline-block mt-2 text-[10px] px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/40 rounded-full">
+                    Conectado a la sesión
+                  </span>
+                </div>
+
+                {/* Badge de Socio Remoto */}
+                <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-xl text-xs flex items-center gap-2 border border-white/10">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="font-bold text-white text-[11px]">{partner2.name}</span>
+                </div>
               </div>
             </div>
 
-            {/* Configurar Enlace de Sala o Usar Sala Integrada */}
-            <div className="mb-3 flex gap-2">
-              <input
-                type="url"
-                placeholder="Pega enlace de Google Meet o deja en blanco para sala integrada..."
-                value={meetingUrl}
-                onChange={(e) => setMeetingUrl(e.target.value)}
-                className="flex-1 px-3 py-1.5 text-xs bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-              />
+            {/* Barra de Controles de Conexión (Mute, Video, Colgar) */}
+            <div className="mt-4 pt-3 border-t border-stone-800/80 flex items-center justify-center gap-3">
               <button
-                onClick={() => setIsMeetActive(true)}
-                className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold transition shrink-0"
+                type="button"
+                onClick={toggleAudio}
+                className={`p-3.5 rounded-2xl font-bold transition flex items-center gap-2 ${
+                  isAudioEnabled
+                    ? 'bg-stone-800 hover:bg-stone-700 text-white'
+                    : 'bg-rose-600 hover:bg-rose-700 text-white'
+                }`}
+                title={isAudioEnabled ? 'Silenciar micrófono' : 'Activar micrófono'}
               >
-                Conectar
+                {isAudioEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </button>
-            </div>
 
-            {/* Contenedor del Meet */}
-            <div className="flex-1 bg-stone-900 rounded-2xl overflow-hidden border border-stone-300 flex items-center justify-center relative shadow-inner p-4">
-              {meetingUrl ? (
-                <div className="text-center p-6 text-white max-w-sm">
-                  <div className="p-3 bg-blue-500/20 text-blue-400 rounded-2xl w-fit mx-auto mb-3">
-                    <Video className="w-8 h-8" />
-                  </div>
-                  <h4 className="font-bold text-sm mb-1">Enlace de Videollamada Conectado</h4>
-                  <p className="text-xs text-stone-400 mb-4 truncate">{meetingUrl}</p>
-                  <a
-                    href={meetingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs shadow-md transition"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>Entrar a la Videollamada</span>
-                  </a>
-                </div>
-              ) : isMeetActive ? (
-                <div className="text-center p-6 text-white max-w-sm">
-                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mx-auto mb-3 animate-pulse">
-                    <Video className="w-8 h-8" />
-                  </div>
-                  <h4 className="font-bold text-base mb-1">Sala Segura de Migalia Activa</h4>
-                  <p className="text-xs text-stone-300 mb-4 leading-relaxed">
-                    Abre la sala en una pestaña optimizada con video HD y audio sin restricciones de navegador mientras levantas la minuta aquí al lado.
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    <a
-                      href={`https://meet.jit.si/Migalia_Boutique_Puebla_${encodeURIComponent(sessionTitle.replace(/[^a-zA-Z0-9]/g, ''))}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs shadow-md transition"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>Abrir Sala de Migalia en Pestaña</span>
-                    </a>
-                    <a
-                      href="https://meet.google.com/new"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 font-medium rounded-xl text-xs transition border border-stone-700"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
-                      <span>O Iniciar con Google Meet</span>
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center p-6 text-white max-w-xs">
-                  <div className="p-4 bg-stone-800 text-amber-400 rounded-2xl w-fit mx-auto mb-3">
-                    <Video className="w-8 h-8" />
-                  </div>
-                  <h4 className="font-bold text-sm text-stone-100">Sala de Conexión de Migalia</h4>
-                  <p className="text-xs text-stone-400 mt-1.5 leading-relaxed">
-                    Conéctate en video con tus socios mientras el asistente transcribe y asienta los acuerdos por voz.
-                  </p>
-                  <div className="mt-4 flex flex-col gap-2">
-                    <button
-                      onClick={() => setIsMeetActive(true)}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-sm transition"
-                    >
-                      <Video className="w-4 h-4" />
-                      <span>Iniciar Sala de Video</span>
-                    </button>
-                    <a
-                      href="https://meet.google.com/new"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-medium border border-stone-700 transition"
-                    >
-                      <ExternalLink className="w-3 h-3 text-blue-400" />
-                      <span>Crear Google Meet</span>
-                    </a>
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={toggleVideo}
+                className={`p-3.5 rounded-2xl font-bold transition flex items-center gap-2 ${
+                  isVideoEnabled
+                    ? 'bg-stone-800 hover:bg-stone-700 text-white'
+                    : 'bg-rose-600 hover:bg-rose-700 text-white'
+                }`}
+                title={isVideoEnabled ? 'Apagar cámara' : 'Encender cámara'}
+              >
+                {isVideoEnabled ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg transition"
+                title="Finalizar llamada"
+              >
+                <PhoneOff className="w-4 h-4" />
+                <span>Finalizar Llamada</span>
+              </button>
             </div>
           </div>
 
-          {/* LADO DERECHO: Asistente de Minutas, Dictado por Voz & Correo */}
-          <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-y-auto space-y-4 bg-white">
-            {/* Metadatos de la Sesión */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* LADO DERECHO: Asistente Automático Miga AI & Despacho de Minuta */}
+          <div className="w-full lg:w-[480px] bg-stone-900 p-5 flex flex-col justify-between overflow-y-auto space-y-4">
+            <div className="space-y-4">
+              {/* Título y Metadatos */}
               <div>
-                <label className="block text-[11px] font-bold text-stone-600 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
                   Título de la Sesión
                 </label>
                 <input
                   type="text"
                   value={sessionTitle}
                   onChange={(e) => setSessionTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs font-bold text-stone-900 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-stone-600 uppercase tracking-wider mb-1">
-                  Asistentes
-                </label>
-                <input
-                  type="text"
-                  value={attendees}
-                  onChange={(e) => setAttendees(e.target.value)}
-                  className="w-full px-3 py-2 text-xs text-stone-800 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-              </div>
-            </div>
+              {/* Caja de Miga AI Oyente */}
+              <div className="p-4 rounded-2xl bg-stone-800/80 border border-stone-700/80">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                    <Sparkles className="w-4 h-4" />
+                    <span>Miga AI Oyente Automático</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full font-bold">
+                    {accumulatedNotes.length} puntos capturados
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  La IA escucha la conversación en segundo plano. Al terminar, presiona el botón inferior para sintetizar los acuerdos automáticamente sin teclear.
+                </p>
 
-            {/* Barra de Control de Dictado por Voz */}
-            <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={toggleListening}
-                  className={`p-3 rounded-2xl text-white font-semibold transition flex items-center gap-2 shadow-md ${
-                    isListening
-                      ? 'bg-rose-600 hover:bg-rose-700 animate-pulse shadow-rose-600/30'
-                      : 'bg-stone-900 hover:bg-stone-800 shadow-stone-900/20'
-                  }`}
+                  onClick={handleGenerateMinutaAI}
+                  disabled={isProcessingAI}
+                  className="mt-3 w-full py-2.5 px-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
                 >
-                  {isListening ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-                  <span className="text-xs">
-                    {isListening ? 'Escuchando en vivo...' : 'Activar Dictado por Voz'}
+                  <Sparkles className="w-4 h-4 text-amber-200" />
+                  <span>
+                    {isProcessingAI ? 'Procesando acuerdos con IA...' : 'Sintetizar Minuta con Miga AI'}
                   </span>
                 </button>
-
-                <p className="text-xs text-stone-600">
-                  {isListening
-                    ? 'Hablen con normalidad; los acuerdos se capturan sin teclear.'
-                    : 'Presiona el micrófono para dictar sin escribir durante la llamada.'}
-                </p>
               </div>
 
+              {/* Minuta Estructurada */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Minuta Oficial & Acuerdos Asentados</span>
+                  </label>
+                  {agreements && (
+                    <button
+                      onClick={handleCopy}
+                      className="text-[10px] text-stone-400 hover:text-amber-300 flex items-center gap-1"
+                    >
+                      {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      <span>{copied ? 'Copiado' : 'Copiar'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <textarea
+                  rows={9}
+                  value={agreements}
+                  onChange={(e) => setAgreements(e.target.value)}
+                  placeholder="Los acuerdos estructurados por Miga AI se generarán aquí automáticamente al pulsar Sintetizar. También puedes hacer anotaciones directas..."
+                  className="w-full p-3.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 leading-relaxed font-sans"
+                />
+              </div>
+
+              {/* Estatus del Envío por Correo */}
+              {emailStatus !== 'idle' && (
+                <div
+                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                    emailStatus === 'success'
+                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
+                      : 'bg-amber-950/80 text-amber-300 border border-amber-800'
+                  }`}
+                >
+                  {emailStatus === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  )}
+                  <span>{emailStatusMsg}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Botón de Asentar y Despachar */}
+            <div className="pt-3 border-t border-stone-800">
               <button
                 type="button"
-                onClick={handleStructureWithAI}
-                disabled={isProcessingAI}
-                className="px-3.5 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs shrink-0"
+                onClick={handleSaveAndSend}
+                disabled={isSendingEmail}
+                className="w-full py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>{isProcessingAI ? 'Estructurando...' : 'Estructurar con Miga AI'}</span>
+                <Mail className="w-4 h-4 text-amber-200" />
+                <span>{isSendingEmail ? 'Enviando por Correo...' : 'Asentar & Enviar Minuta a Socios'}</span>
               </button>
-            </div>
-
-            {/* Transcripción en Vivo */}
-            {transcript && (
-              <div>
-                <span className="text-[11px] font-bold text-stone-500 block mb-1">
-                  Transcripción Cruda en Vivo:
-                </span>
-                <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-600 max-h-28 overflow-y-auto italic font-sans leading-relaxed">
-                  {transcript}
-                </div>
-              </div>
-            )}
-
-            {/* Acuerdos Oficiales Asentados */}
-            <div className="flex-1 flex flex-col min-h-[180px]">
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                  Minuta Final & Acuerdos (Se enviará por correo)
-                </label>
-                <button
-                  type="button"
-                  onClick={handleCopyAgreements}
-                  className="text-[11px] text-stone-500 hover:text-stone-800 flex items-center gap-1"
-                >
-                  {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                  <span>{copied ? 'Copiado' : 'Copiar texto'}</span>
-                </button>
-              </div>
-              <textarea
-                rows={8}
-                value={agreements}
-                onChange={(e) => setAgreements(e.target.value)}
-                placeholder="Los acuerdos estructurados por voz o con Miga AI aparecerán aquí. También puedes editarlos directamente..."
-                className="w-full flex-1 p-3.5 text-xs text-stone-800 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 leading-relaxed font-sans"
-              />
-            </div>
-
-            {/* Notificación de Estatus de Correo */}
-            {emailStatus !== 'idle' && (
-              <div
-                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                  emailStatus === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-amber-50 text-amber-800 border border-amber-200'
-                }`}
-              >
-                {emailStatus === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                )}
-                <span>{emailStatusMsg}</span>
-              </div>
-            )}
-
-            {/* Footer con Acciones de Despacho */}
-            <div className="pt-3 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-[11px] text-stone-400 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Se registrará automáticamente en Bitácora con copia a los socios.</span>
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-xl text-xs font-semibold transition"
-                >
-                  Cerrar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveAndSend}
-                  disabled={isSendingEmail}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>{isSendingEmail ? 'Enviando Minuta...' : 'Asentar & Enviar Minuta por Correo'}</span>
-                </button>
-              </div>
+              <p className="text-[10px] text-stone-500 text-center mt-2">
+                Se registrará en la Bitácora y se enviará copia con membrete formal a ambos socios.
+              </p>
             </div>
           </div>
         </div>

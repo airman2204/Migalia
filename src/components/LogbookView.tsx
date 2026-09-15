@@ -71,7 +71,7 @@ export const LogbookView: React.FC<LogbookViewProps> = ({
             className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm"
           >
             <Video className="w-3.5 h-3.5" />
-            <span>Iniciar Sesión / Meet con Asistente</span>
+            <span>Migalia Calls Studio (Nativo)</span>
           </button>
           <button
             onClick={() => setShowForm(!showForm)}
