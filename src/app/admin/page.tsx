@@ -20,6 +20,9 @@ import { MigaAIView } from '@/components/MigaAIView';
 import { PartnersChatDrawer } from '@/components/PartnersChatDrawer';
 import { MeetingRoomModal } from '@/components/MeetingRoomModal';
 import { MeetingsCalendarModal } from '@/components/MeetingsCalendarModal';
+import { GlobalSearchModal } from '@/components/GlobalSearchModal';
+import { IncomingCallToast } from '@/components/IncomingCallToast';
+import { soundManager } from '@/lib/soundEffects';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -39,6 +42,7 @@ import {
   Recipe,
   MigaliaDocument,
   ScheduledMeeting,
+  ChatMessage,
 } from '@/types';
 
 export default function Home() {
@@ -76,7 +80,7 @@ export default function Home() {
   });
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Modales
+  // Modales y Estados de Comunicación
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,8 +89,53 @@ export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isGlobalMeetingOpen, setIsGlobalMeetingOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeMeetingData, setActiveMeetingData] = useState<Partial<ScheduledMeeting> | null>(null);
   const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
+
+  // Mensajes de Chat y Notificaciones de Llamada
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const local = localStorage.getItem('migalia_partners_chat');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [
+      {
+        id: 'msg-1',
+        senderId: 'partner-1',
+        senderName: 'Mario',
+        content: 'Hola Susy, acabo de revisar la cotización del horno de convección y el borrador de las cláusulas para la visa E-2.',
+        createdAt: '10:15 AM',
+      },
+      {
+        id: 'msg-2',
+        senderId: 'partner-2',
+        senderName: 'Susy',
+        content: '¡Perfecto Mario! Ya terminé el costeo oficial de las Cookie Fries con el dip de frutos rojos. Los márgenes quedaron arriba del 78%.',
+        createdAt: '10:22 AM',
+      },
+    ];
+  });
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [incomingCall, setIncomingCall] = useState<{
+    callerName: string;
+    meetingTitle?: string;
+  } | null>(null);
+
+  // Atajo de Teclado Global: Ctrl + K / Cmd + K para abrir buscador
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Navegación y Filtros
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -285,6 +334,26 @@ export default function Home() {
             return p;
           })
         );
+      })
+      .on('broadcast', { event: 'incoming_call' }, ({ payload }) => {
+        if (payload?.callerId !== currentPartner.id) {
+          setIncomingCall({
+            callerName: payload?.callerName || 'Tu socio',
+            meetingTitle: payload?.meetingTitle,
+          });
+        }
+      })
+      .on('broadcast', { event: 'new_chat_message' }, ({ payload }) => {
+        if (payload?.senderId !== currentPartner.id) {
+          setChatMessages((prev) => {
+            const exists = prev.some((m) => m.id === payload.id);
+            if (exists) return prev;
+            return [...prev, payload];
+          });
+          // Sonido de Pop elegante y aumento de contador de no leídos
+          soundManager.playChatPop();
+          setUnreadChatCount((prev) => prev + 1);
+        }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -600,9 +669,28 @@ export default function Home() {
           partners={partners}
           currentPartner={currentPartner}
           onLogout={handleLogout}
-          onOpenChat={() => setIsChatOpen(true)}
+          onOpenChat={() => {
+            setIsChatOpen(true);
+            setUnreadChatCount(0);
+          }}
           onOpenCalendar={() => setIsCalendarOpen(true)}
-          onLaunchStudio={() => setIsGlobalMeetingOpen(true)}
+          onLaunchStudio={() => {
+            // Emitir evento de llamada a otros socios conectados
+            try {
+              supabase.channel('migalia_presence').send({
+                type: 'broadcast',
+                event: 'incoming_call',
+                payload: {
+                  callerId: currentPartner?.id,
+                  callerName: currentPartner?.name || 'Mario',
+                  meetingTitle: 'Sesión Estratégica & Acuerdos Migalia',
+                },
+              });
+            } catch (e) {}
+            setIsGlobalMeetingOpen(true);
+          }}
+          unreadCount={unreadChatCount}
+          onOpenSearch={() => setIsSearchOpen(true)}
         />
       </div>
 
@@ -896,9 +984,34 @@ export default function Home() {
         onClose={() => setIsChatOpen(false)}
         currentPartner={currentPartner}
         partners={partners}
+        messages={chatMessages}
+        onSendMessage={(newMsg) => {
+          setChatMessages((prev) => [...prev, newMsg]);
+          try {
+            localStorage.setItem('migalia_partners_chat', JSON.stringify([...chatMessages, newMsg]));
+            // Transmitir mensaje en tiempo real por Supabase Broadcast
+            supabase.channel('migalia_presence').send({
+              type: 'broadcast',
+              event: 'new_chat_message',
+              payload: newMsg,
+            });
+          } catch (e) {}
+        }}
         onLaunchMeeting={(title) => {
           setIsChatOpen(false);
           setActiveMeetingData(title ? { title } : null);
+          // Notificar llamada
+          try {
+            supabase.channel('migalia_presence').send({
+              type: 'broadcast',
+              event: 'incoming_call',
+              payload: {
+                callerId: currentPartner?.id,
+                callerName: currentPartner?.name || 'Mario',
+                meetingTitle: title || 'Sesión de Acuerdos',
+              },
+            });
+          } catch (e) {}
           setIsGlobalMeetingOpen(true);
         }}
       />
@@ -917,7 +1030,7 @@ export default function Home() {
         }}
       />
 
-      {/* Sala de Sesión WebRTC Nativa (Migalia Calls Studio) con Miga AI */}
+      {/* Sala de Sesión WebRTC Nativa (Migalia Calls Studio) con Miga AI y PIP */}
       <MeetingRoomModal
         isOpen={isGlobalMeetingOpen}
         onClose={() => {
@@ -929,6 +1042,48 @@ export default function Home() {
         meetingData={activeMeetingData}
         onSaveMinuta={handleAddLogbookEntry}
       />
+
+      {/* Buscador Global Inteligente (Ctrl + K / Raycast Spotlight) */}
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        tasks={tasks}
+        recipes={recipes}
+        logbook={logbook}
+        documents={documents}
+        onNavigate={(tab, targetId) => {
+          setActiveTab(tab);
+          if (targetId && tab === 'tasks') {
+            const found = tasks.find((t) => t.id === targetId);
+            if (found) {
+              setSelectedTask(found);
+              setIsModalOpen(true);
+            }
+          } else if (targetId && tab === 'recipes') {
+            const foundRec = recipes.find((r) => r.id === targetId);
+            if (foundRec) {
+              setSelectedRecipe(foundRec);
+              setIsRecipeModalOpen(true);
+            }
+          }
+        }}
+      />
+
+      {/* Toast con Sonido de Llamada Entrante */}
+      {incomingCall && !isGlobalMeetingOpen && (
+        <IncomingCallToast
+          callerName={incomingCall.callerName}
+          meetingTitle={incomingCall.meetingTitle}
+          onAccept={() => {
+            setActiveMeetingData({ title: incomingCall.meetingTitle || 'Sesión de Acuerdos' });
+            setIncomingCall(null);
+            setIsGlobalMeetingOpen(true);
+          }}
+          onReject={() => {
+            setIncomingCall(null);
+          }}
+        />
+      )}
     </div>
   );
 }

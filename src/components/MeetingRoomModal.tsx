@@ -61,6 +61,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   const [agreements, setAgreements] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
   const [copied, setCopied] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   // Referencias a elementos y streams de video
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -297,6 +298,74 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     partners.find((p) => p.id !== currentPartner?.id) ||
     partners[1] || { name: 'Susy', role: 'Dirección Culinaria & Operaciones', isOnline: false };
 
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 duration-200">
+        <div className="w-80 bg-stone-950 text-white rounded-2xl border border-amber-500/50 shadow-2xl p-3.5 backdrop-blur-md">
+          <div className="flex items-center justify-between mb-2 pb-2 border-b border-stone-800">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-bold truncate max-w-[130px]">{sessionTitle}</span>
+              <span className="text-[10px] font-mono text-amber-400 bg-stone-900 px-1.5 py-0.5 rounded">
+                {formatTimer(callDuration)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsMinimized(false)}
+                className="p-1 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800"
+                title="Maximizar llamada"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleExitCall}
+                className="p-1 text-rose-400 hover:text-rose-300 rounded-lg hover:bg-rose-950/50"
+                title="Colgar"
+              >
+                <PhoneOff className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={toggleAudio}
+                className={`p-2 rounded-xl text-xs transition ${
+                  isAudioEnabled ? 'bg-stone-800 text-white' : 'bg-rose-600 text-white'
+                }`}
+              >
+                {isAudioEnabled ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                type="button"
+                onClick={toggleVideo}
+                className={`p-2 rounded-xl text-xs transition ${
+                  isVideoEnabled ? 'bg-stone-800 text-white' : 'bg-rose-600 text-white'
+                }`}
+              >
+                {isVideoEnabled ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            <button
+              onClick={toggleNotesCapture}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1 ${
+                isRecordingNotes
+                  ? 'bg-rose-600 text-white animate-pulse'
+                  : 'bg-amber-500 text-stone-950'
+              }`}
+            >
+              {isRecordingNotes ? 'Parar Notas' : 'Tomar Notas'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
       <div className="bg-stone-950 w-full h-[95vh] max-w-7xl rounded-3xl border border-stone-800 shadow-2xl flex flex-col overflow-hidden text-stone-100">
@@ -325,7 +394,16 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMinimized(true)}
+              className="p-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-xl transition flex items-center gap-1.5 text-xs font-medium"
+              title="Minimizar a esquina flotante (Picture-in-Picture) para ver recetas o tablero"
+            >
+              <Minimize2 className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline text-stone-300 text-[11px]">Minimizar</span>
+            </button>
+
             <button
               onClick={handleExitCall}
               className="p-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-xl transition"

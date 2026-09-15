@@ -13,30 +13,18 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+import { soundManager } from '@/lib/soundEffects';
+import { supabase } from '@/lib/supabase';
+
 interface PartnersChatDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   currentPartner: Partner | null;
   partners: Partner[];
   onLaunchMeeting: (title?: string) => void;
+  messages: ChatMessage[];
+  onSendMessage: (msg: ChatMessage) => void;
 }
-
-const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
-  {
-    id: 'msg-1',
-    senderId: 'partner-1',
-    senderName: 'Mario',
-    content: 'Hola Susy, acabo de revisar la cotización del horno de convección y el borrador de las cláusulas para la visa E-2.',
-    createdAt: '10:15 AM',
-  },
-  {
-    id: 'msg-2',
-    senderId: 'partner-2',
-    senderName: 'Susy',
-    content: '¡Perfecto Mario! Ya terminé el costeo oficial de las Cookie Fries con el dip de frutos rojos. Los márgenes quedaron arriba del 78%.',
-    createdAt: '10:22 AM',
-  },
-];
 
 export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
   isOpen,
@@ -44,29 +32,58 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
   currentPartner,
   partners,
   onLaunchMeeting,
+  messages,
+  onSendMessage,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    try {
-      const local = localStorage.getItem('migalia_partners_chat');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return INITIAL_CHAT_MESSAGES;
-  });
-
   const [inputMessage, setInputMessage] = useState('');
+  const [remoteTyping, setRemoteTyping] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<any>(null);
+
+  // Escuchar y emitir estado "Escribiendo..." con Supabase Broadcast
+  useEffect(() => {
+    const channel = supabase.channel('migalia_chat_realtime');
+
+    channel
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (payload?.senderId !== currentPartner?.id) {
+          setRemoteTyping(payload?.senderName || 'Tu socio');
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => {
+            setRemoteTyping(null);
+          }, 2500);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentPartner]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('migalia_partners_chat', JSON.stringify(messages));
-    } catch (e) {}
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isOpen]);
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isOpen, remoteTyping]);
 
   if (!isOpen) return null;
+
+  const handleInputChange = (val: string) => {
+    setInputMessage(val);
+    if (val.trim()) {
+      try {
+        supabase.channel('migalia_chat_realtime').send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: {
+            senderId: currentPartner?.id,
+            senderName: currentPartner?.shortName || 'Socio',
+          },
+        });
+      } catch (e) {}
+    }
+  };
 
   const handleSendMessage = () => {
     if (!inputMessage.trim()) return;
@@ -79,7 +96,8 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, newMsg]);
+    onSendMessage(newMsg);
+    soundManager.playChatPop();
     setInputMessage('');
   };
 
@@ -89,13 +107,13 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
       id: 'msg-' + Date.now(),
       senderId: currentPartner?.id || 'mario',
       senderName: currentPartner?.shortName || 'Mario',
-      content: `🎥 He iniciado una sesión en vivo en Migalia Meets: "${meetingTitle}". Únete para revisar acuerdos y levantar la minuta por voz.`,
+      content: `🎥 He iniciado una sesión en vivo en Migalia: "${meetingTitle}". Únete para revisar acuerdos y levantar la minuta por voz.`,
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isMeetingInvite: true,
       meetingTitle,
     };
 
-    setMessages((prev) => [...prev, inviteMsg]);
+    onSendMessage(inviteMsg);
     onLaunchMeeting(meetingTitle);
   };
 
@@ -186,6 +204,19 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
               </div>
             );
           })}
+
+          {/* Indicador de Socio Escribiendo */}
+          {remoteTyping && (
+            <div className="flex items-center gap-2 text-xs text-stone-500 bg-white/80 border border-stone-200 p-2 rounded-xl w-fit animate-pulse">
+              <span className="flex gap-1">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" />
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+              </span>
+              <span className="text-[11px] font-medium">{remoteTyping} está escribiendo...</span>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -196,7 +227,7 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
               type="text"
               placeholder="Escribe un mensaje para los socios..."
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSendMessage();
               }}

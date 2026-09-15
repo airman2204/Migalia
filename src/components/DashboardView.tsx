@@ -326,6 +326,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Feed de Actividad Reciente de Socios */}
+      <div className="bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-5 shadow-xs space-y-3">
+        <div className="flex items-center justify-between border-b border-[#F2EFE9] pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <h2 className="text-sm font-bold text-[#221F1D]">Actividad Reciente entre Socios</h2>
+          </div>
+          <span className="text-[10px] text-[#8C6239] font-medium">Sincronizado en tiempo real</span>
+        </div>
+
+        <div className="divide-y divide-stone-100">
+          {logbook.slice(0, 4).map((entry) => (
+            <div key={entry.id} className="py-2.5 flex items-start justify-between gap-3 text-xs">
+              <div className="flex items-start gap-2.5">
+                <div className="w-6 h-6 rounded-full bg-[#F2EFE9] text-[#8C6239] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  {entry.authorName?.charAt(0) || 'M'}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#221F1D]">{entry.title}</p>
+                  <p className="text-[11px] text-[#6E665D] line-clamp-1">{entry.content}</p>
+                </div>
+              </div>
+              <span className="text-[10px] text-stone-400 shrink-0 font-mono">{entry.date}</span>
+            </div>
+          ))}
+
+          {logbook.length === 0 && (
+            <p className="text-xs text-stone-400 py-3 text-center">No hay registros recientes aún en la bitácora.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

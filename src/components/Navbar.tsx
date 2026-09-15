@@ -1,6 +1,6 @@
 import React from 'react';
 import { Partner } from '@/types';
-import { User, Users, Plus, LogOut, MessageSquare, Calendar, Video } from 'lucide-react';
+import { User, Users, Plus, LogOut, MessageSquare, Calendar, Video, Search } from 'lucide-react';
 
 interface NavbarProps {
   currentFilter: 'all' | string;
@@ -11,6 +11,8 @@ interface NavbarProps {
   onOpenChat?: () => void;
   onOpenCalendar?: () => void;
   onLaunchStudio?: () => void;
+  unreadCount?: number;
+  onOpenSearch?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -22,6 +24,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenChat,
   onOpenCalendar,
   onLaunchStudio,
+  unreadCount = 0,
+  onOpenSearch,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/90 backdrop-blur-md border-b border-[#E6DFD5] px-4 lg:px-8 py-3.5 transition-all">
@@ -91,6 +95,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {onOpenSearch && (
+            <button
+              onClick={onOpenSearch}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#EBE7DF] text-[#6E665D] hover:text-[#221F1D] border border-[#DDD5C7] rounded-full text-xs font-semibold transition shadow-2xs"
+              title="Buscar en todo el sistema (Ctrl + K)"
+            >
+              <Search className="w-3.5 h-3.5 text-[#8C6239]" />
+              <span className="hidden lg:inline text-[11px]">Buscar...</span>
+              <kbd className="hidden sm:inline-block text-[9px] bg-stone-100 text-stone-500 px-1.5 py-0.2 rounded border border-stone-200 font-mono">
+                ⌘K
+              </kbd>
+            </button>
+          )}
+
           {onOpenCalendar && (
             <button
               onClick={onOpenCalendar}
@@ -116,11 +134,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           {onOpenChat && (
             <button
               onClick={onOpenChat}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] rounded-full text-xs font-semibold transition shadow-xs"
+              className="relative flex items-center gap-1.5 px-3 py-1.5 bg-[#221F1D] hover:bg-[#34302C] text-[#F8F6F0] rounded-full text-xs font-semibold transition shadow-xs"
               title="Abrir Chat Interno de Socios"
             >
               <MessageSquare className="w-3.5 h-3.5 text-[#C59B27]" />
               <span className="hidden sm:inline">Chat</span>
+              {unreadCount > 0 && (
+                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-amber-500 text-stone-950 rounded-full text-[10px] font-extrabold animate-bounce">
+                  {unreadCount}
+                </span>
+              )}
             </button>
           )}
 
