@@ -99,3 +99,22 @@ ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(12, 2) 
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS actual_cost NUMERIC(12, 2) DEFAULT NULL;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS blocker_reason TEXT DEFAULT NULL;
+
+-- 7. Tabla de Recetas Estandarizadas y Escandallos (Etapa 1.2)
+CREATE TABLE IF NOT EXISTS public.recipes (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  yield_count TEXT NOT NULL,
+  presentation TEXT NOT NULL,
+  standardized_for TEXT DEFAULT 'Recetario estandarizado y costeado',
+  category TEXT DEFAULT 'General',
+  ingredients JSONB DEFAULT '[]'::jsonb,
+  mise_en_place JSONB DEFAULT '[]'::jsonb,
+  preparation JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.recipes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Permitir todo a usuarios autenticados en recipes" ON public.recipes FOR ALL TO authenticated USING (true) WITH CHECK (true);

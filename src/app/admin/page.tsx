@@ -13,6 +13,8 @@ import { MilestonesView } from '@/components/MilestonesView';
 import { TaskModal } from '@/components/TaskModal';
 import { LoginScreen } from '@/components/LoginScreen';
 import { SettingsModal } from '@/components/SettingsModal';
+import { RecipesView } from '@/components/RecipesView';
+import { RecipeModal } from '@/components/RecipeModal';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -20,8 +22,9 @@ import {
   EMPTY_TASKS,
   EMPTY_LOGBOOK,
   INITIAL_MILESTONES,
+  INITIAL_RECIPES,
 } from '@/lib/initialData';
-import { Task, LogbookEntry, TaskStatus, Milestone, Partner } from '@/types';
+import { Task, LogbookEntry, TaskStatus, Milestone, Partner, Recipe } from '@/types';
 
 export default function Home() {
   // Autenticación de Socio Activo
@@ -32,6 +35,7 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
   const [budget, setBudget] = useState<number>(250000);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -39,6 +43,8 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
   const [presetStatus, setPresetStatus] = useState<TaskStatus>('todo');
 
   // Navegación y Filtros
@@ -324,6 +330,48 @@ export default function Home() {
     });
   };
 
+  // 6. Operaciones de Recetas & Fichas Técnicas
+  useEffect(() => {
+    try {
+      const local = localStorage.getItem('migalia_recipes');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRecipes(parsed);
+        }
+      }
+    } catch (e) {
+      console.error('Error al cargar recetas locales:', e);
+    }
+  }, []);
+
+  const handleSaveRecipe = (recipeData: Recipe) => {
+    setRecipes((prev) => {
+      const exists = prev.some((r) => r.id === recipeData.id);
+      const updated = exists
+        ? prev.map((r) => (r.id === recipeData.id ? recipeData : r))
+        : [recipeData, ...prev];
+      try {
+        localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Error al guardar receta:', e);
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteRecipe = (recipeId: string) => {
+    setRecipes((prev) => {
+      const updated = prev.filter((r) => r.id !== recipeId);
+      try {
+        localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Error al eliminar receta:', e);
+      }
+      return updated;
+    });
+  };
+
   // Vaciar y empezar desde cero en Supabase
   const handleResetToZero = async () => {
     if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
@@ -339,6 +387,7 @@ export default function Home() {
     inProgress: displayedTasks.filter((t) => t.status === 'in_progress').length,
     logbook: logbook.length,
     milestones: milestones.length,
+    recipes: recipes.length,
   };
 
   if (isLoaded && !currentPartner) {
@@ -458,6 +507,21 @@ export default function Home() {
               onDeleteMilestone={handleDeleteMilestone}
             />
           )}
+
+          {activeTab === 'recipes' && (
+            <RecipesView
+              recipes={recipes}
+              onOpenNewRecipe={() => {
+                setSelectedRecipe(null);
+                setIsRecipeModalOpen(true);
+              }}
+              onSelectRecipe={(recipe) => {
+                setSelectedRecipe(recipe);
+                setIsRecipeModalOpen(true);
+              }}
+              onDeleteRecipe={handleDeleteRecipe}
+            />
+          )}
         </main>
       </div>
 
@@ -472,6 +536,18 @@ export default function Home() {
         partners={partners}
         onSaveTask={handleSaveTask}
         onDeleteTask={handleDeleteTask}
+      />
+
+      {/* Modal de Ficha Técnica / Receta */}
+      <RecipeModal
+        recipe={selectedRecipe}
+        isOpen={isRecipeModalOpen}
+        onClose={() => {
+          setIsRecipeModalOpen(false);
+          setSelectedRecipe(null);
+        }}
+        onSaveRecipe={handleSaveRecipe}
+        onDeleteRecipe={handleDeleteRecipe}
       />
 
       {/* Modal de Configuración */}

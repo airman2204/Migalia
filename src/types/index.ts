@@ -67,3 +67,28 @@ export interface Milestone {
   status: 'pending' | 'in_progress' | 'completed';
   progress: number;
 }
+
+export interface RecipeIngredient {
+  id: string;
+  name: string;
+  quantity: number; // Gramaje / cantidad (ej. 0.250)
+  unit: 'KG' | 'GR' | 'LT' | 'ML' | 'PZA' | 'C/S' | string;
+  unitCost: number; // C/U (Costo unitario de compra)
+  totalCost: number; // C/T (Calculado: quantity * unitCost)
+  isSubrecipeTitle?: boolean; // Para encabezados tipo "SUB-RECETA GUACAMOLE"
+}
+
+export interface Recipe {
+  id: string;
+  title: string; // RECETA (ej. COSTRA DE QUESO, COOKIE FRIES)
+  yieldCount: string; // RENDIMIENTO (ej. "10 PERSONAS", "24 PIEZAS")
+  presentation: string; // PRESENTACIÓN (ej. "ENTRADA CALIENTE", "CAJA GIFTABLE")
+  standardizedFor?: string; // Título superior (ej. "Recetario estandarizado y costeado")
+  category?: string; // Categoría interna (ej. "Galletas", "Panadería", "Bebidas")
+  ingredients: RecipeIngredient[];
+  miseEnPlace: string[]; // Lista numerada de pasos de pre-elaboración
+  preparation: string[]; // Lista numerada de pasos de preparación y horneado
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
