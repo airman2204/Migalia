@@ -43,15 +43,34 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
     setPrintRecipe(recipe);
     setTimeout(() => {
       window.print();
-    }, 250);
+    }, 200);
   };
 
   const handlePrintAll = () => {
     setIsPrintAllOpen(true);
     setTimeout(() => {
       window.print();
-    }, 300);
+    }, 250);
   };
+
+  // Cerrar vista previa con tecla Escape o al terminar de imprimir
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPrintRecipe(null);
+        setIsPrintAllOpen(false);
+      }
+    };
+    const handleAfterPrint = () => {
+      // Opcional: mantiene abierto o permite cerrar
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -266,35 +285,43 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
 
       {/* Modal / Overlay para Impresión de Receta Individual */}
       {printRecipe && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 print:p-0 print:bg-white print:static print-only-container overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-4xl p-6 print:p-0 print:border-none print:shadow-none shadow-2xl relative my-auto">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E6DFD5] print:hidden">
-              <div>
-                <h3 className="text-sm font-bold text-[#221F1D]">
-                  Vista Previa para Impresión / Exportación PDF
-                </h3>
-                <p className="text-xs text-[#6E665D]">
-                  Ficha técnica estandarizada y costeada con logotipo oficial Migalia.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] hover:bg-[#34302C] transition-all"
-                >
-                  <Printer className="w-3.5 h-3.5 text-[#C59B27]" />
-                  <span>Imprimir / Guardar PDF</span>
-                </button>
-                <button
-                  onClick={() => setPrintRecipe(null)}
-                  className="p-2 rounded-xl text-[#6E665D] hover:bg-[#F2EEE9] transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPrintRecipe(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex flex-col items-center p-4 sm:p-6 print:p-0 print:bg-white print:static print-only-container overflow-y-auto"
+        >
+          {/* Barra Flotante Superior para Cerrar o Imprimir */}
+          <div className="w-full max-w-4xl bg-white px-5 py-3 rounded-2xl border border-[#E6DFD5] shadow-xl flex items-center justify-between mb-4 sticky top-4 z-10 print:hidden">
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-[#221F1D] flex items-center gap-2">
+                <span>Ficha Técnica: {printRecipe.title}</span>
+              </h3>
+              <p className="text-[11px] text-[#6E665D]">
+                Vista previa de impresión oficial. Haz clic en "Cerrar" o presiona <kbd className="px-1.5 py-0.5 bg-[#F2EFE9] border border-[#DDD5C7] rounded text-[10px] font-mono">ESC</kbd> para salir.
+              </p>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] hover:bg-[#34302C] transition-all shadow-sm cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-[#C59B27]" />
+                <span>Imprimir / Guardar PDF</span>
+              </button>
+              <button
+                onClick={() => setPrintRecipe(null)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#221F1D] bg-[#F2EFE9] hover:bg-[#EBE7DF] border border-[#DDD5C7] transition-all cursor-pointer"
+                title="Cerrar vista previa"
+              >
+                <X className="w-4 h-4 text-[#6E665D]" />
+                <span>Cerrar</span>
+              </button>
+            </div>
+          </div>
 
-            <div className="overflow-x-auto pb-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl p-6 sm:p-8 print:p-0 print:border-none print:shadow-none shadow-2xl relative mb-8">
+            <div className="overflow-x-auto">
               <RecipePrintSheet recipe={printRecipe} />
             </div>
           </div>
@@ -303,33 +330,42 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
 
       {/* Modal / Overlay para Impresión del Recetario Completo */}
       {isPrintAllOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 print:p-0 print:bg-white print:static print-only-container overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-4xl p-6 print:p-0 print:border-none print:shadow-none shadow-2xl relative my-auto">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E6DFD5] print:hidden">
-              <div>
-                <h3 className="text-sm font-bold text-[#221F1D]">
-                  Recetario Completo Migalia ({recipes.length} Recetas)
-                </h3>
-                <p className="text-xs text-[#6E665D]">
-                  Se generará una página por receta lista para encuadernar o descargar en PDF.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] hover:bg-[#34302C] transition-all"
-                >
-                  <Printer className="w-3.5 h-3.5 text-[#C59B27]" />
-                  <span>Imprimir Todo</span>
-                </button>
-                <button
-                  onClick={() => setIsPrintAllOpen(false)}
-                  className="p-2 rounded-xl text-[#6E665D] hover:bg-[#F2EEE9] transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsPrintAllOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex flex-col items-center p-4 sm:p-6 print:p-0 print:bg-white print:static print-only-container overflow-y-auto"
+        >
+          {/* Barra Flotante Superior */}
+          <div className="w-full max-w-4xl bg-white px-5 py-3 rounded-2xl border border-[#E6DFD5] shadow-xl flex items-center justify-between mb-4 sticky top-4 z-10 print:hidden">
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-[#221F1D]">
+                Recetario Completo Migalia ({recipes.length} Recetas)
+              </h3>
+              <p className="text-[11px] text-[#6E665D]">
+                Compilado de producción. Haz clic en "Cerrar" o presiona <kbd className="px-1.5 py-0.5 bg-[#F2EFE9] border border-[#DDD5C7] rounded text-[10px] font-mono">ESC</kbd> para salir.
+              </p>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] hover:bg-[#34302C] transition-all shadow-sm cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-[#C59B27]" />
+                <span>Imprimir Todo</span>
+              </button>
+              <button
+                onClick={() => setIsPrintAllOpen(false)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#221F1D] bg-[#F2EFE9] hover:bg-[#EBE7DF] border border-[#DDD5C7] transition-all cursor-pointer"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4 text-[#6E665D]" />
+                <span>Cerrar</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl w-full max-w-4xl p-6 sm:p-8 print:p-0 print:border-none print:shadow-none shadow-2xl relative mb-8">
 
             <div className="space-y-8 print:space-y-0">
               {recipes.map((r, idx) => (

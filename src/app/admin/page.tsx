@@ -395,7 +395,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8F6F0]">
+    <div className="min-h-screen flex flex-col bg-[#F8F6F0] print:bg-white print:block print:min-h-0">
       {/* Top Navigation */}
       <div className="print:hidden">
         <Navbar
