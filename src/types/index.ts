@@ -92,3 +92,24 @@ export interface Recipe {
   createdAt: string;
   updatedAt?: string;
 }
+
+export type DocumentType = 'doc' | 'sheet' | 'google_embed';
+export type DocumentFolder =
+  | 'Legal & Constitución'
+  | 'Finanzas & Inversión'
+  | 'Operaciones & Taller'
+  | 'Branding & Mercadotecnia'
+  | 'General';
+
+export interface MigaliaDocument {
+  id: string;
+  title: string;
+  type: DocumentType;
+  folder: DocumentFolder;
+  content: string; // Para Docs: HTML/Markdown; Para Sheets: JSON string de celdas; Para Google: URL embed
+  authorId?: string;
+  authorName?: string;
+  createdAt: string;
+  updatedAt: string;
+  isPinned?: boolean;
+}

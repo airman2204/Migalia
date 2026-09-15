@@ -416,3 +416,50 @@ export const INITIAL_RECIPES: Recipe[] = [
     createdAt: '2026-09-15',
   },
 ];
+
+export const INITIAL_DOCUMENTS: import('@/types').MigaliaDocument[] = [
+  {
+    id: 'doc-1',
+    title: 'Acuerdo de Voluntades & Cláusulas Corporativas E-2',
+    type: 'doc',
+    folder: 'Legal & Constitución',
+    content: `<h2>ACUERDO PRE-CONSTITUTIVO ENTRE COFUNDADORES</h2><p><strong>PROYECTO:</strong> MIGALIA S.A. DE C.V.</p><p><strong>OBJETIVO:</strong> Establecer las bases operativas, distribución accionaria 50/50 y mecanismos de repatriación de dividendos compatibles con el trámite de inversión para <strong>Visa E-2</strong> en Estados Unidos.</p><h3>1. Distribución Accionaria y Gobierno Corporativo</h3><ul><li><strong>Mario Alberto González Cervantes:</strong> 50% de las acciones Serie A. Enfoque: Finanzas, Expansión, Dirección Comercial y Legal.</li><li><strong>Susy:</strong> 50% de las acciones Serie A. Enfoque: Dirección Culinaria, Operación de Boutique y Calidad.</li></ul><h3>2. Políticas de Reinversión de Utilidades</h3><p>Durante los primeros 12 meses de operación, el 70% del flujo neto será reinvertido en la apertura del segundo punto de venta en Puebla (Angelópolis / Sonata), reservando el 30% restante para reparto de dividendos.</p>`,
+    authorName: 'Mario',
+    createdAt: '2026-09-15',
+    updatedAt: '2026-09-15',
+    isPinned: true,
+  },
+  {
+    id: 'doc-2',
+    title: 'Presupuesto y Proyección de Inversión Inicial (CAPEX)',
+    type: 'sheet',
+    folder: 'Finanzas & Inversión',
+    content: JSON.stringify({
+      columns: ['Concepto', 'Categoría', 'Presupuesto Estimado', 'Gasto Real Pagado', 'Diferencia / Estatus'],
+      rows: [
+        ['Horno de Convección Eléctrico 4 Charolas', 'Equipamiento', '42000', '0', 'Cotizado'],
+        ['Batidora Planetaria 20 Litros', 'Equipamiento', '28500', '0', 'Por autorizar'],
+        ['Refrigerador / Vitrina Panorámica Cristal Curvo', 'Equipamiento', '35000', '0', 'Búsqueda'],
+        ['Protocolización Acta Constitutiva S.A. de C.V.', 'Legal', '16500', '0', 'En Notaría'],
+        ['Registro de Marca Mixta ante el IMPI', 'Legal', '3500', '0', 'Por ingresar'],
+        ['Adecuación Arquitectónica e Instalaciones', 'Obra & Local', '45000', '0', 'Estimado'],
+        ['Empaque Inicial (1,000 conos + 1,000 cajas)', 'Branding', '15000', '0', 'Cotizado con imprenta'],
+        ['Materia Prima Inicial (Harinas, Mantequillas, Chocolate)', 'Inventario', '18000', '0', 'Por pedir'],
+      ]
+    }),
+    authorName: 'Mario',
+    createdAt: '2026-09-15',
+    updatedAt: '2026-09-15',
+    isPinned: true,
+  },
+  {
+    id: 'doc-3',
+    title: 'Manual de Procedimientos de Apertura y Cierre de Boutique',
+    type: 'doc',
+    folder: 'Operaciones & Taller',
+    content: `<h2>CHECKLIST DIARIO DE APERTURA Y CONTROL DE CALIDAD</h2><p><strong>HORARIO DE APERTURA AL PÚBLICO:</strong> 08:30 AM</p><h3>Apertura (07:30 AM - 08:30 AM)</h3><ul><li>[ ] Encendido de horno de convección a temperatura base (170°C).</li><li>[ ] Primer lote de Cookie Fries y horneado fresco del día.</li><li>[ ] Montaje y acomodo en vitrina con iluminación cálida.</li><li>[ ] Verificación de temperatura de salsas y dips (refrigeración &lt; 4°C).</li><li>[ ] Apertura de caja registradora y fondo inicial de cambio ($1,500 MXN).</li></ul><h3>Cierre (08:30 PM - 09:15 PM)</h3><ul><li>[ ] Corte de caja diario y conciliación con sistema TPV.</li><li>[ ] Registro de mermas del día.</li><li>[ ] Limpieza profunda de superficies y desconexión de equipos secundarios.</li></ul>`,
+    authorName: 'Susy',
+    createdAt: '2026-09-15',
+    updatedAt: '2026-09-15',
+  }
+];

@@ -15,6 +15,7 @@ import { LoginScreen } from '@/components/LoginScreen';
 import { SettingsModal } from '@/components/SettingsModal';
 import { RecipesView } from '@/components/RecipesView';
 import { RecipeModal } from '@/components/RecipeModal';
+import { DocumentsView } from '@/components/DocumentsView';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -23,8 +24,9 @@ import {
   EMPTY_LOGBOOK,
   INITIAL_MILESTONES,
   INITIAL_RECIPES,
+  INITIAL_DOCUMENTS,
 } from '@/lib/initialData';
-import { Task, LogbookEntry, TaskStatus, Milestone, Partner, Recipe } from '@/types';
+import { Task, LogbookEntry, TaskStatus, Milestone, Partner, Recipe, MigaliaDocument } from '@/types';
 
 export default function Home() {
   // Autenticación de Socio Activo
@@ -36,6 +38,7 @@ export default function Home() {
   const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
+  const [documents, setDocuments] = useState<MigaliaDocument[]>(INITIAL_DOCUMENTS);
   const [budget, setBudget] = useState<number>(250000);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -372,6 +375,48 @@ export default function Home() {
     });
   };
 
+  // 7. Operaciones de Documentos & Archivos (Docs, Sheets, Google Embed)
+  useEffect(() => {
+    try {
+      const localDocs = localStorage.getItem('migalia_documents');
+      if (localDocs) {
+        const parsed = JSON.parse(localDocs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDocuments(parsed);
+        }
+      }
+    } catch (e) {
+      console.error('Error al cargar documentos locales:', e);
+    }
+  }, []);
+
+  const handleSaveDocument = (docData: MigaliaDocument) => {
+    setDocuments((prev) => {
+      const exists = prev.some((d) => d.id === docData.id);
+      const updated = exists
+        ? prev.map((d) => (d.id === docData.id ? docData : d))
+        : [docData, ...prev];
+      try {
+        localStorage.setItem('migalia_documents', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Error al guardar documento:', e);
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteDocument = (docId: string) => {
+    setDocuments((prev) => {
+      const updated = prev.filter((d) => d.id !== docId);
+      try {
+        localStorage.setItem('migalia_documents', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Error al eliminar documento:', e);
+      }
+      return updated;
+    });
+  };
+
   // Vaciar y empezar desde cero en Supabase
   const handleResetToZero = async () => {
     if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
@@ -388,6 +433,7 @@ export default function Home() {
     logbook: logbook.length,
     milestones: milestones.length,
     recipes: recipes.length,
+    documents: documents.length,
   };
 
   if (isLoaded && !currentPartner) {
@@ -524,6 +570,15 @@ export default function Home() {
                 setIsRecipeModalOpen(true);
               }}
               onDeleteRecipe={handleDeleteRecipe}
+            />
+          )}
+
+          {activeTab === 'documents' && (
+            <DocumentsView
+              documents={documents}
+              currentPartnerName={currentPartner?.name || 'Mario'}
+              onSaveDocument={handleSaveDocument}
+              onDeleteDocument={handleDeleteDocument}
             />
           )}
         </main>

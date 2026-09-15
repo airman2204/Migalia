@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat } from 'lucide-react';
+import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files } from 'lucide-react';
 
-export type ActiveTab = 'dashboard' | 'tasks' | 'kanban' | 'logbook' | 'milestones' | 'recipes';
+export type ActiveTab = 'dashboard' | 'tasks' | 'kanban' | 'recipes' | 'documents' | 'logbook' | 'milestones';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -14,6 +14,7 @@ interface SidebarProps {
     logbook: number;
     milestones: number;
     recipes?: number;
+    documents?: number;
   };
   onOpenSettings?: () => void;
 }
@@ -24,12 +25,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   counts,
   onOpenSettings,
 }) => {
-  // Orden estratégico: Actividades, Kanban, Recetario & Costeo, Bitácora, Hitos
+  // Orden estratégico: Actividades, Kanban, Recetario & Costeo, Documentos & Archivos, Bitácora, Hitos
   const menuItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Resumen Ejecutivo', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'tasks', label: 'Lista de Actividades', icon: <FolderKanban className="w-4 h-4" />, badge: counts.total },
     { id: 'kanban', label: 'Tablero Kanban', icon: <Columns3 className="w-4 h-4" /> },
     { id: 'recipes', label: 'Recetario & Costeo', icon: <ChefHat className="w-4 h-4" />, badge: counts.recipes },
+    { id: 'documents', label: 'Documentos & Archivos', icon: <Files className="w-4 h-4" />, badge: counts.documents },
     { id: 'logbook', label: 'Bitácora & Minutas', icon: <BookOpen className="w-4 h-4" />, badge: counts.logbook },
     { id: 'milestones', label: 'Hitos & Cronograma', icon: <CalendarRange className="w-4 h-4" />, badge: counts.milestones },
   ];
