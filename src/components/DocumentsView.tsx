@@ -50,15 +50,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [selectedFolder, setSelectedFolder] = useState<'all' | DocumentFolder>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal rápido de creación: solo pide título, categoría y URL (opcional)
+  // Modal rápido de creación: solo pide título y categoría
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createType, setCreateType] = useState<'google_sheet' | 'google_doc'>('google_sheet');
   const [createTitle, setCreateTitle] = useState('');
   const [createFolder, setCreateFolder] = useState<DocumentFolder>('Finanzas & Inversión');
-  const [createUrl, setCreateUrl] = useState('');
 
   // Modal para ver/editar un documento existente
   const [editingDoc, setEditingDoc] = useState<MigaliaDocument | null>(null);
+  const [editUrl, setEditUrl] = useState('');
 
   // Filtrado reactivo por tipo de recurso y búsqueda
   const filteredDocuments = useMemo(() => {
@@ -110,27 +110,26 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         ? 'Finanzas & Inversión'
         : 'Legal & Constitución'
     );
-    setCreateUrl('');
     setIsCreateModalOpen(true);
   };
 
   /**
    * Al crear:
-   * 1. Guarda el registro clasificado con su categoría (Legal, Branding, etc.).
-   * 2. Si se ingresó una URL de Google, abre esa URL en una pestaña nueva.
-   * 3. Si no se ingresó URL, abre de inmediato sheets.new o docs.new para empezar a trabajar al instante.
+   * 1. Guarda el registro clasificado con su categoría (Legal, Branding, Finanzas, etc.).
+   * 2. Asigna la URL directa a Google Workspace (sheets.new o docs.new).
+   * 3. Abre de inmediato el documento en una pestaña nueva para empezar a trabajar.
    */
   const handleConfirmCreate = () => {
     const title = createTitle.trim() || (createType === 'google_sheet' ? 'Nueva Hoja de Cálculo' : 'Nuevo Documento');
-    const finalUrl = createUrl.trim();
+    const directUrl = createType === 'google_sheet' ? 'https://sheets.new' : 'https://docs.new';
 
     const newDoc: MigaliaDocument = {
       id: 'doc-' + Date.now(),
       title,
       type: createType,
       folder: createFolder,
-      content: finalUrl,
-      googleUrl: finalUrl || undefined,
+      content: directUrl,
+      googleUrl: directUrl,
       authorName: currentPartnerName || 'Mario',
       createdAt: new Date().toISOString().split('T')[0],
       updatedAt: new Date().toISOString().split('T')[0],
@@ -140,13 +139,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     onSaveDocument(newDoc);
     setIsCreateModalOpen(false);
 
-    // Redirección directa al documento en Google:
-    if (finalUrl && finalUrl.startsWith('http')) {
-      window.open(finalUrl, '_blank');
-    } else {
-      const templateNew = createType === 'google_sheet' ? 'https://sheets.new' : 'https://docs.new';
-      window.open(templateNew, '_blank');
-    }
+    // Redirección directa al documento en Google
+    window.open(directUrl, '_blank');
   };
 
   const handleOpenEdit = (doc: MigaliaDocument) => {
@@ -154,12 +148,12 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     setCreateType(doc.type === 'google_doc' || doc.type === 'doc' ? 'google_doc' : 'google_sheet');
     setCreateTitle(doc.title);
     setCreateFolder(doc.folder);
-    setCreateUrl(doc.googleUrl || (doc.content?.startsWith('http') ? doc.content : ''));
+    setEditUrl(doc.googleUrl || (doc.content?.startsWith('http') ? doc.content : ''));
   };
 
   const handleSaveEdit = () => {
     if (!editingDoc) return;
-    const finalUrl = createUrl.trim();
+    const finalUrl = editUrl.trim();
     const updated: MigaliaDocument = {
       ...editingDoc,
       title: createTitle.trim() || editingDoc.title,
@@ -633,25 +627,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   })}
                 </div>
               </div>
-
-              {/* 3. Enlace (Opcional si ya existe) */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-stone-800">
-                    Enlace de Google <span className="font-normal text-stone-400">(opcional)</span>:
-                  </label>
-                  <span className="text-[10px] text-stone-500">
-                    Si no pegas uno, se creará uno nuevo en blanco
-                  </span>
-                </div>
-                <input
-                  type="url"
-                  placeholder="Pega el link si ya lo tienes, o déjalo vacío para abrir uno nuevo..."
-                  value={createUrl}
-                  onChange={(e) => setCreateUrl(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-400 focus:outline-none focus:bg-white text-xs font-mono"
-                />
-              </div>
             </div>
 
             {/* Botón de Confirmación y Creación */}
@@ -727,17 +702,17 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 <label className="block font-bold text-stone-800 mb-1.5">Enlace de Google:</label>
                 <input
                   type="url"
-                  value={createUrl}
-                  onChange={(e) => setCreateUrl(e.target.value)}
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
                   className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-stone-800 text-xs font-mono"
                 />
               </div>
             </div>
 
             <div className="mt-6 flex items-center justify-between gap-2 pt-3 border-t border-stone-150">
-              {createUrl && createUrl.startsWith('http') ? (
+              {editUrl && editUrl.startsWith('http') ? (
                 <a
-                  href={createUrl}
+                  href={editUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1"
