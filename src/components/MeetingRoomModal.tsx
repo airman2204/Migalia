@@ -55,16 +55,11 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   const [hasMediaPermission, setHasMediaPermission] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
 
-  // Estados de IA y Minuta Automática Silenciosa
-  const [isAISilentListening, setIsAISilentListening] = useState(true);
+  // Estados de IA y Captura de Notas
+  const [isRecordingNotes, setIsRecordingNotes] = useState(false);
   const [accumulatedNotes, setAccumulatedNotes] = useState<string[]>([]);
   const [agreements, setAgreements] = useState('');
-  const [isProcessingAI, setIsProcessingAI] = useState(false);
-
-  // Estados de Envío de Correo
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [emailStatusMsg, setEmailStatusMsg] = useState('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
   const [copied, setCopied] = useState(false);
 
   // Referencias a elementos y streams de video
@@ -116,38 +111,48 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     };
   }, []);
 
-  // 2. Escucha Silenciosa de Fondo con Miga AI (Speech Recognition automático sin dictar)
+  // 2. Control de Captura de Notas con Reconocimiento de Voz
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
+    if (!SpeechRecognition) return;
+
+    if (isRecordingNotes) {
       try {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
-        recognition.interimResults = true;
+        recognition.interimResults = false;
         recognition.lang = 'es-MX';
 
         recognition.onresult = (event: any) => {
-          let latestText = '';
           for (let i = event.resultIndex; i < event.results.length; i++) {
             if (event.results[i].isFinal) {
               const snippet = event.results[i][0].transcript.trim();
-              if (snippet.length > 5) {
-                setAccumulatedNotes((prev) => [...prev, snippet]);
+              if (snippet.length > 3) {
+                setAccumulatedNotes((prev) => {
+                  const updated = [...prev, snippet];
+                  // Actualizar también directamente el texto de la minuta
+                  setAgreements((prevAgr) => {
+                    if (!prevAgr) {
+                      return `• ${snippet}`;
+                    }
+                    return `${prevAgr}\n• ${snippet}`;
+                  });
+                  return updated;
+                });
               }
-            } else {
-              latestText += event.results[i][0].transcript;
             }
           }
         };
 
         recognition.onerror = (e: any) => {
-          console.warn('Speech listener warn:', e.error);
+          console.warn('Speech listener error:', e.error);
         };
 
         recognition.onend = () => {
-          if (isAISilentListening) {
+          // Si sigue activo el estado de grabación de notas, reconectar
+          if (recognitionRef.current && isRecordingNotes) {
             try {
               recognition.start();
             } catch (err) {}
@@ -157,16 +162,31 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
         recognition.start();
         recognitionRef.current = recognition;
       } catch (e) {
-        console.warn('Reconocimiento no disponible:', e);
+        console.warn('Error al iniciar reconocimiento de voz:', e);
+      }
+    } else {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {}
+        recognitionRef.current = null;
       }
     }
 
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {}
+        recognitionRef.current = null;
       }
     };
-  }, [isAISilentListening]);
+  }, [isRecordingNotes]);
+
+  // Alternar Captura de Notas (Tomar Notas / Parar Notas)
+  const toggleNotesCapture = () => {
+    setIsRecordingNotes((prev) => !prev);
+  };
 
   // Alternar Video Local
   const toggleVideo = () => {
@@ -190,50 +210,18 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     }
   };
 
-  // 3. Síntesis Automática de Minuta con Miga AI
-  const handleGenerateMinutaAI = () => {
-    setIsProcessingAI(true);
-
-    setTimeout(() => {
-      const contextText =
-        accumulatedNotes.length > 0
-          ? accumulatedNotes.join(' \n• ')
-          : 'Revisión de avances del local en Puebla, tiempos de entrega del horno de convección, cotizaciones de empaque marfil y cláusulas corporativas.';
-
-      const structured =
-        `1. OBJETIVO & ASISTENTES DE LA SESIÓN:\n` +
-        `• Sesión de alineación interna entre ${attendees}.\n` +
-        `• Asunto principal: ${sessionTitle}.\n\n` +
-        `2. ACUERDOS Y DECISIONES TOMADAS:\n` +
-        `• ` + contextText + `\n` +
-        `• Definición de fechas de prueba para el horneado de Cookie Fries.\n` +
-        `• Validación del presupuesto ejecutado contra el CAPEX disponible.\n\n` +
-        `3. TAREAS Y RESPONSABLES ASIGNADOS:\n` +
-        `• Mario: Seguimiento legal, contacto con notario y supervisión presupuestal.\n` +
-        `• Susy: Pruebas de textura en horno, gramajes de sub-recetas y fichas técnicas.\n\n` +
-        `4. PRÓXIMA REUNIÓN:\n` +
-        `• Compromiso de revisión en 7 días en el calendario interno de Migalia.`;
-
-      setAgreements(structured);
-      setIsProcessingAI(false);
-    }, 700);
-  };
-
-  // 4. Guardar y Despachar Minuta por Correo
-  const handleSaveAndSend = async () => {
+  // 3. Guardar Minuta en el Historial de Bitácora (Sin envío de correo)
+  const handleSaveMinutaOnly = () => {
     if (!sessionTitle.trim() || !agreements.trim()) {
-      alert('Primero genera o escribe los acuerdos de la minuta para poder asentarla.');
+      alert('Por favor agrega notas o acuerdos para guardar en la minuta.');
       return;
     }
 
-    setIsSendingEmail(true);
-    setEmailStatus('idle');
-
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Registrar en Bitácora central
+    // Registrar directamente en Bitácora central / historial de minutas
     onSaveMinuta({
-      title: `Minuta Sesión Interna: ${sessionTitle}`,
+      title: `Minuta Sesión: ${sessionTitle}`,
       content: agreements,
       category: 'Reunión & Acuerdos',
       authorId: currentPartner?.id || partners[0]?.id || 'socio',
@@ -241,36 +229,10 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
       date: todayStr,
     });
 
-    // Despachar por correo a los socios
-    try {
-      const res = await fetch('/api/send-minuta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: sessionTitle,
-          date: todayStr,
-          agreements: agreements,
-          attendees: attendees,
-          rawNotes: accumulatedNotes.join(' \n'),
-          senderName: 'Miga AI · Migalia Calls Studio',
-          recipients: partners.map((p) => p.email).filter(Boolean),
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setEmailStatus('success');
-        setEmailStatusMsg(data.message || 'Minuta asentada y enviada a los socios.');
-      } else {
-        setEmailStatus('error');
-        setEmailStatusMsg('Minuta asentada en Bitácora.');
-      }
-    } catch (err: any) {
-      setEmailStatus('error');
-      setEmailStatusMsg('Minuta registrada con éxito en la Bitácora.');
-    } finally {
-      setIsSendingEmail(false);
-    }
+    setSaveStatus('saved');
+    setTimeout(() => {
+      setSaveStatus('idle');
+    }, 4000);
   };
 
   const formatTimer = (sec: number) => {
@@ -293,35 +255,30 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
       <div className="bg-stone-950 w-full h-[95vh] max-w-7xl rounded-3xl border border-stone-800 shadow-2xl flex flex-col overflow-hidden text-stone-100">
         {/* Header Superior del Studio */}
         <div className="px-6 py-3.5 bg-stone-900 border-b border-stone-800 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl">
-              <Video className="w-5 h-5" />
+          <div className="flex items-center gap-4">
+            {/* Logo Oficial Migalia */}
+            <div className="flex items-baseline tracking-widest text-white">
+              <span className="text-xl md:text-2xl font-bold tracking-[0.25em]">M</span>
+              <span className="text-xl md:text-2xl font-bold tracking-[0.25em] relative">
+                I
+                <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1 bg-[#C59B27] rounded-sm transform rotate-12" />
+              </span>
+              <span className="text-xl md:text-2xl font-bold tracking-[0.25em]">GALIA</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-serif font-bold text-white">
-                  Migalia Calls Studio
-                </h2>
-                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full font-bold border border-emerald-500/30">
-                  <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" /> WebRTC Interno
-                </span>
-                <span className="text-xs font-mono text-stone-400 font-bold bg-stone-800 px-2 py-0.5 rounded-md">
-                  {formatTimer(callDuration)}
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-400 mt-0.5">
-                Ecosistema propio de videollamada con captura y síntesis de minutas por Miga AI.
-              </p>
+
+            <div className="h-4 w-px bg-stone-700" />
+
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold border border-emerald-500/20">
+                <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" /> En Vivo
+              </span>
+              <span className="text-xs font-mono text-stone-300 font-bold bg-stone-800 px-2.5 py-1 rounded-lg border border-stone-700">
+                {formatTimer(callDuration)}
+              </span>
             </div>
           </div>
 
-          {/* Indicador de Miga AI Escuchando */}
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-              <span className="text-[11px] font-medium">Miga AI escuchando de fondo</span>
-            </div>
-
             <button
               onClick={onClose}
               className="p-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-xl transition"
@@ -434,7 +391,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
             </div>
           </div>
 
-          {/* LADO DERECHO: Asistente Automático Miga AI & Despacho de Minuta */}
+          {/* LADO DERECHO: Control de Notas y Guardado en Historial de Minutas */}
           <div className="w-full lg:w-[480px] bg-stone-900 p-5 flex flex-col justify-between overflow-y-auto space-y-4">
             <div className="space-y-4">
               {/* Título y Metadatos */}
@@ -450,40 +407,42 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                 />
               </div>
 
-              {/* Caja de Miga AI Oyente */}
-              <div className="p-4 rounded-2xl bg-stone-800/80 border border-stone-700/80">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
-                    <Sparkles className="w-4 h-4" />
-                    <span>Miga AI Oyente Automático</span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full font-bold">
-                    {accumulatedNotes.length} puntos capturados
-                  </span>
-                </div>
-                <p className="text-[11px] text-stone-400 leading-relaxed">
-                  La IA escucha la conversación en segundo plano. Al terminar, presiona el botón inferior para sintetizar los acuerdos automáticamente sin teclear.
-                </p>
-
+              {/* Botón de Captura: Tomar Notas / Parar Notas */}
+              <div>
                 <button
                   type="button"
-                  onClick={handleGenerateMinutaAI}
-                  disabled={isProcessingAI}
-                  className="mt-3 w-full py-2.5 px-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                  onClick={toggleNotesCapture}
+                  className={`w-full py-3 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2.5 shadow-md ${
+                    isRecordingNotes
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
+                      : 'bg-gradient-to-r from-[#C59B27] to-[#B3891E] hover:from-[#B3891E] hover:to-[#9F7715] text-stone-950 font-extrabold'
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4 text-amber-200" />
-                  <span>
-                    {isProcessingAI ? 'Procesando acuerdos con IA...' : 'Sintetizar Minuta con Miga AI'}
-                  </span>
+                  {isRecordingNotes ? (
+                    <>
+                      <MicOff className="w-4 h-4" />
+                      <span>Parar Notas (Grabación activa)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4" />
+                      <span>Tomar Notas</span>
+                    </>
+                  )}
                 </button>
+                {isRecordingNotes && (
+                  <p className="text-[11px] text-amber-400 text-center mt-1.5 font-medium">
+                    🎙️ Capturando lo que hablan en la sesión directamente a la minuta...
+                  </p>
+                )}
               </div>
 
-              {/* Minuta Estructurada */}
+              {/* Minuta & Acuerdos Asentados */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Minuta Oficial & Acuerdos Asentados</span>
+                    <span>Notas & Acuerdos de la Minuta</span>
                   </label>
                   {agreements && (
                     <button
@@ -497,47 +456,33 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                 </div>
 
                 <textarea
-                  rows={9}
+                  rows={11}
                   value={agreements}
                   onChange={(e) => setAgreements(e.target.value)}
-                  placeholder="Los acuerdos estructurados por Miga AI se generarán aquí automáticamente al pulsar Sintetizar. También puedes hacer anotaciones directas..."
+                  placeholder="Presiona 'Tomar Notas' para que se comiencen a capturar las notas de la conversación aquí. Puedes pausar con 'Parar Notas' en cualquier momento o escribir directo..."
                   className="w-full p-3.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 leading-relaxed font-sans"
                 />
               </div>
 
-              {/* Estatus del Envío por Correo */}
-              {emailStatus !== 'idle' && (
-                <div
-                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                    emailStatus === 'success'
-                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                      : 'bg-amber-950/80 text-amber-300 border border-amber-800'
-                  }`}
-                >
-                  {emailStatus === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                  )}
-                  <span>{emailStatusMsg}</span>
+              {/* Estado de guardado */}
+              {saveStatus === 'saved' && (
+                <div className="p-3 rounded-xl text-xs flex items-center gap-2 bg-emerald-950/80 text-emerald-300 border border-emerald-800 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Minuta guardada exitosamente en el historial de la Bitácora.</span>
                 </div>
               )}
             </div>
 
-            {/* Botón de Asentar y Despachar */}
+            {/* Botón de Asentar Minuta (Solo guardar en historial) */}
             <div className="pt-3 border-t border-stone-800">
               <button
                 type="button"
-                onClick={handleSaveAndSend}
-                disabled={isSendingEmail}
-                className="w-full py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                onClick={handleSaveMinutaOnly}
+                className="w-full py-3 px-4 bg-stone-800 hover:bg-stone-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg border border-stone-700"
               >
-                <Mail className="w-4 h-4 text-amber-200" />
-                <span>{isSendingEmail ? 'Enviando por Correo...' : 'Asentar & Enviar Minuta a Socios'}</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Asentar Minuta</span>
               </button>
-              <p className="text-[10px] text-stone-500 text-center mt-2">
-                Se registrará en la Bitácora y se enviará copia con membrete formal a ambos socios.
-              </p>
             </div>
           </div>
         </div>
