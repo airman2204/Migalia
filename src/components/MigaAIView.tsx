@@ -11,6 +11,9 @@ import {
   Bot,
   Send,
   RefreshCw,
+  Check,
+  BookmarkPlus,
+  FolderPlus,
 } from 'lucide-react';
 
 interface MigaAIViewProps {
@@ -21,6 +24,9 @@ interface MigaAIViewProps {
   partners: Partner[];
   documents: MigaliaDocument[];
   budget: number;
+  currentPartnerName?: string;
+  onSaveToLogbook?: (entry: Omit<LogbookEntry, 'id'>) => void;
+  onSaveDocument?: (doc: MigaliaDocument) => void;
 }
 
 type AIMode = 'dossier' | 'marketing' | 'chat';
@@ -39,9 +45,14 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
   partners,
   documents,
   budget,
+  currentPartnerName = 'Mario',
+  onSaveToLogbook,
+  onSaveDocument,
 }) => {
-  const [activeMode, setActiveMode] = useState<AIMode>('dossier');
+  const [activeMode, setActiveMode] = useState<AIMode>('chat');
   const [copied, setCopied] = useState(false);
+  const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
+  const [savedEntries, setSavedEntries] = useState<Record<number, boolean>>({});
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<
     { role: 'user' | 'assistant'; content: string; time: string }[]
@@ -49,7 +60,7 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
     {
       role: 'assistant',
       content:
-        '¡Hola Mario y Susy! Soy Miga AI, su copiloto inteligente para Migalia. Tengo lectura en tiempo real de sus tareas, recetas, costos, bitácora y presupuesto. ¿En qué los puedo apoyar hoy? Puedo generar el dossier para inversionistas en PDF, redactar copys de marketing para el lanzamiento o responder cualquier análisis financiero del negocio.',
+        '¡Hola Mario y Susy! Soy Miga AI, su copiloto inteligente para Migalia. Tengo lectura en tiempo real de sus tareas, recetas, costos, bitácora y presupuesto. ¿En qué los puedo apoyar hoy? Puedo analizar márgenes, redactar copys de marketing, desglosar gastos o generar reportes que puedes guardar con un solo clic en la Bitácora o en Documentos.',
       time: 'Justo ahora',
     },
   ]);
@@ -105,6 +116,52 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleSaveMessageToLogbook = (content: string, msgIndex: number) => {
+    if (!onSaveToLogbook) return;
+
+    // Obtener un título limpio a partir de la primera línea o frase
+    const firstLine = content.split('\n')[0].replace(/[*#]/g, '').trim();
+    const title = firstLine.length > 5 ? firstLine.slice(0, 60) : 'Reporte / Nota de Miga AI';
+
+    onSaveToLogbook({
+      title: `[Miga AI] ${title}`,
+      content: content,
+      category: 'Decisión de Negocio',
+      authorName: currentPartnerName || 'Miga AI Copilot',
+      authorId: 'ai-copilot',
+      date: new Date().toISOString().split('T')[0],
+    });
+
+    setSavedEntries((prev) => ({ ...prev, [msgIndex]: true }));
+    setSavedFeedback('¡Guardado con éxito en Bitácora & Minutas!');
+    setTimeout(() => setSavedFeedback(null), 3000);
+  };
+
+  const handleSaveMessageToDocument = (content: string, msgIndex: number) => {
+    if (!onSaveDocument) return;
+
+    const firstLine = content.split('\n')[0].replace(/[*#]/g, '').trim();
+    const title = firstLine.length > 5 ? firstLine.slice(0, 50) : 'Informe Estratégico';
+    const now = new Date().toISOString().split('T')[0];
+
+    const newDoc: MigaliaDocument = {
+      id: 'doc-' + Date.now(),
+      title: `Miga AI · ${title}`,
+      type: 'doc',
+      folder: 'Branding & Mercadotecnia',
+      authorName: currentPartnerName || 'Miga AI',
+      authorId: 'ai-copilot',
+      createdAt: now,
+      updatedAt: now,
+      content: content,
+    };
+
+    onSaveDocument(newDoc);
+    setSavedEntries((prev) => ({ ...prev, [msgIndex]: true }));
+    setSavedFeedback('¡Guardado en Documentos & Archivos!');
+    setTimeout(() => setSavedFeedback(null), 3000);
   };
 
   // Motor contextual de respuestas rápidas
@@ -597,6 +654,22 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
             </button>
           </div>
 
+          {/* Banner de Feedback de Guardado */}
+          {savedFeedback && (
+            <div className="bg-emerald-600 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4" />
+                <span>{savedFeedback}</span>
+              </div>
+              <button
+                onClick={() => setSavedFeedback(null)}
+                className="text-white/80 hover:text-white text-xs ml-4"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Mensajes */}
           <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 bg-stone-50/40">
             {chatMessages.map((msg, idx) => (
@@ -619,13 +692,64 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
                   }`}
                 >
                   <p>{msg.content}</p>
-                  <span
-                    className={`block text-[10px] mt-2 ${
-                      msg.role === 'user' ? 'text-stone-400 text-right' : 'text-stone-400'
-                    }`}
-                  >
-                    {msg.time}
-                  </span>
+
+                  {/* Acciones para mensajes del Asistente */}
+                  {msg.role === 'assistant' && (
+                    <div className="mt-3 pt-2.5 border-t border-stone-150 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleSaveMessageToLogbook(msg.content, idx)}
+                          disabled={savedEntries[idx]}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                            savedEntries[idx]
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-stone-100 hover:bg-stone-200 text-stone-700 hover:text-stone-900 border border-stone-200'
+                          }`}
+                          title="Guardar como minuta o nota en la Bitácora oficial"
+                        >
+                          {savedEntries[idx] ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Guardado</span>
+                            </>
+                          ) : (
+                            <>
+                              <BookmarkPlus className="w-3 h-3 text-amber-600" />
+                              <span>Guardar en Bitácora</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleSaveMessageToDocument(msg.content, idx)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-stone-100 hover:bg-stone-200 text-stone-700 hover:text-stone-900 border border-stone-200 transition"
+                          title="Guardar como documento editable en la pestaña de Documentos"
+                        >
+                          <FolderPlus className="w-3 h-3 text-sky-600" />
+                          <span>Guardar en Documentos</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleCopyText(msg.content)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition"
+                          title="Copiar texto"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>Copiar</span>
+                        </button>
+                      </div>
+
+                      <span className="text-[10px] text-stone-400">
+                        {msg.time}
+                      </span>
+                    </div>
+                  )}
+
+                  {msg.role === 'user' && (
+                    <span className="block text-[10px] mt-2 text-stone-400 text-right">
+                      {msg.time}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

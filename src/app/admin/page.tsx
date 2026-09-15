@@ -54,8 +54,26 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
-  const [documents, setDocuments] = useState<MigaliaDocument[]>(INITIAL_DOCUMENTS);
+  const [recipes, setRecipes] = useState<Recipe[]>(() => {
+    try {
+      const local = localStorage.getItem('migalia_recipes');
+      if (local !== null) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_RECIPES;
+  });
+  const [documents, setDocuments] = useState<MigaliaDocument[]>(() => {
+    try {
+      const localDocs = localStorage.getItem('migalia_documents');
+      if (localDocs !== null) {
+        const parsed = JSON.parse(localDocs);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_DOCUMENTS;
+  });
   const [budget, setBudget] = useState<number>(250000);
   const [meetings, setMeetings] = useState<ScheduledMeeting[]>(() => {
     try {
@@ -259,9 +277,7 @@ export default function Home() {
             }))
           );
         } else {
-          // Inicializar hitos si está vacío
-          await supabase.from('milestones').upsert(INITIAL_MILESTONES);
-          setMilestones(INITIAL_MILESTONES);
+          setMilestones([]);
         }
       } catch (err) {
         console.error('Error al conectar con Supabase:', err);
@@ -525,9 +541,9 @@ export default function Home() {
   useEffect(() => {
     try {
       const local = localStorage.getItem('migalia_recipes');
-      if (local) {
+      if (local !== null) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setRecipes(parsed);
         }
       }
@@ -567,9 +583,9 @@ export default function Home() {
   useEffect(() => {
     try {
       const localDocs = localStorage.getItem('migalia_documents');
-      if (localDocs) {
+      if (localDocs !== null) {
         const parsed = JSON.parse(localDocs);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setDocuments(parsed);
         }
       }
@@ -938,6 +954,9 @@ export default function Home() {
               partners={partners}
               documents={documents}
               budget={budget}
+              currentPartnerName={currentPartner?.name || 'Mario'}
+              onSaveToLogbook={handleAddLogbookEntry}
+              onSaveDocument={handleSaveDocument}
             />
           )}
         </main>
