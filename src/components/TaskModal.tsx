@@ -98,16 +98,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       st.id === stId ? { ...st, completed: !st.completed } : st
     );
     setSubtasks(updated);
-
-    // Si todas las subtareas quedan completadas, pasar automáticamente a 'done' (Terminado)
-    if (updated.length > 0) {
-      const allDone = updated.every((s) => s.completed);
-      if (allDone && status !== 'done') {
-        setStatus('done');
-      } else if (!allDone && status === 'done') {
-        setStatus('in_progress');
-      }
-    }
   };
 
   const handleToggleAllSubtasks = () => {
@@ -115,12 +105,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const newCompleted = !allAlreadyCompleted;
     const updated = subtasks.map((s) => ({ ...s, completed: newCompleted }));
     setSubtasks(updated);
-
-    if (newCompleted) {
-      setStatus('done');
-    } else if (status === 'done') {
-      setStatus('in_progress');
-    }
   };
 
   const handleDeleteSubtask = (stId: string) => {
