@@ -149,29 +149,16 @@ export default function Home() {
     callerName: string;
     meetingTitle?: string;
   } | null>(null);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
-
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setNotificationPermission(Notification.permission);
-    }
-  }, []);
-
-  const handleRequestNotificationPermission = useCallback(async () => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      try {
-        const perm = await Notification.requestPermission();
-        setNotificationPermission(perm);
-        if (perm === 'granted') {
-          new Notification('MIGALIA', {
-            body: '¡Notificaciones activadas! Recibirás avisos cuando tus socios te escriban.',
-            icon: '/icon.png',
-          });
-        }
-      } catch (e) {
-        console.error('Error requesting notification permission:', e);
+    // Solicitar permiso de notificaciones automáticamente en cuanto cargue el panel o al primer clic
+    const autoAskNotification = () => {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
       }
-    }
+    };
+    autoAskNotification();
+    window.addEventListener('click', autoAskNotification, { once: true });
+    return () => window.removeEventListener('click', autoAskNotification);
   }, []);
 
   // Atajo de Teclado Global: Ctrl + K / Cmd + K para abrir buscador
@@ -986,8 +973,6 @@ export default function Home() {
           }}
           unreadCount={unreadChatCount}
           onOpenSearch={() => setIsSearchOpen(true)}
-          notificationPermission={notificationPermission}
-          onRequestNotificationPermission={handleRequestNotificationPermission}
         />
       </div>
 

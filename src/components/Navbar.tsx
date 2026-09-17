@@ -1,6 +1,6 @@
 import React from 'react';
 import { Partner } from '@/types';
-import { User, Users, Plus, LogOut, MessageSquare, Calendar, Video, Search, Bell, BellOff } from 'lucide-react';
+import { User, Users, Plus, LogOut, MessageSquare, Calendar, Video, Search } from 'lucide-react';
 
 interface NavbarProps {
   currentFilter: 'all' | string;
@@ -13,8 +13,6 @@ interface NavbarProps {
   onLaunchStudio?: () => void;
   unreadCount?: number;
   onOpenSearch?: () => void;
-  notificationPermission?: NotificationPermission;
-  onRequestNotificationPermission?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,8 +26,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLaunchStudio,
   unreadCount = 0,
   onOpenSearch,
-  notificationPermission,
-  onRequestNotificationPermission,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/90 backdrop-blur-md border-b border-[#E6DFD5] px-4 lg:px-8 py-3.5 transition-all">
@@ -132,31 +128,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Video className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Llamada</span>
-            </button>
-          )}
-
-          {onRequestNotificationPermission && (
-            <button
-              onClick={onRequestNotificationPermission}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition border ${
-                notificationPermission === 'granted'
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                  : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-              }`}
-              title={
-                notificationPermission === 'granted'
-                  ? 'Notificaciones de escritorio activas'
-                  : 'Clic para activar notificaciones de escritorio'
-              }
-            >
-              {notificationPermission === 'granted' ? (
-                <Bell className="w-3.5 h-3.5 text-emerald-600" />
-              ) : (
-                <BellOff className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-              )}
-              <span className="hidden xl:inline text-[11px]">
-                {notificationPermission === 'granted' ? 'Alertas activas' : 'Activar alertas'}
-              </span>
             </button>
           )}
 
