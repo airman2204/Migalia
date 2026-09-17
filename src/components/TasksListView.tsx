@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Task, Partner, TaskStatus, Priority } from '@/types';
-import { Search, Filter, Clock, CheckSquare, Plus, ArrowRight } from 'lucide-react';
+import { Search, Filter, Clock, CheckSquare, Plus, ArrowRight, AlertOctagon } from 'lucide-react';
+import { analyzeTaskDate, getOverdueMetrics } from '@/lib/taskImpactUtils';
 
 interface TasksListViewProps {
   tasks: Task[];
@@ -23,6 +24,8 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [onlyOverdueFilter, setOnlyOverdueFilter] = useState(false);
+  const overdueMetrics = getOverdueMetrics(tasks);
 
   const getPartner = (id: string) => partners.find((p) => p.id === id);
 
@@ -31,7 +34,8 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
       (t.title || '').toLowerCase().includes(search.toLowerCase()) ||
       (t.description || '').toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || t.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesOverdue = !onlyOverdueFilter || analyzeTaskDate(t).status === 'overdue';
+    return matchesSearch && matchesCategory && matchesOverdue;
   });
 
   // Código de color exacto solicitado:
@@ -116,6 +120,20 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 text-xs">
+          {overdueMetrics.overdueCount > 0 && (
+            <button
+              onClick={() => setOnlyOverdueFilter(!onlyOverdueFilter)}
+              className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 transition-colors ${
+                onlyOverdueFilter
+                  ? 'bg-red-600 text-white border-red-700'
+                  : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+              }`}
+            >
+              <AlertOctagon className="w-3.5 h-3.5" />
+              <span>Vencidas ({overdueMetrics.overdueCount})</span>
+            </button>
+          )}
+
           <Filter className="w-3.5 h-3.5 text-[#8C6239]" />
           <select
             value={categoryFilter}
@@ -160,17 +178,28 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
                 filteredTasks.map((t) => {
                   const partner = getPartner(t.assignedTo);
                   const doneCount = (t.subtasks || []).filter((s) => s.completed).length;
+                  const dateAnalysis = analyzeTaskDate(t);
+                  const isOverdue = dateAnalysis.status === 'overdue';
 
                   return (
                     <tr
                       key={t.id}
                       onClick={() => onSelectTask(t)}
-                      className={`hover:bg-[#FAF8F5] cursor-pointer transition-colors ${
-                        t.isBlocked ? 'bg-[#FFFBF5]' : ''
+                      className={`cursor-pointer transition-colors ${
+                        isOverdue
+                          ? 'bg-red-50/40 hover:bg-red-50/70 border-l-4 border-l-red-500'
+                          : t.isBlocked
+                          ? 'bg-[#FFFBF5] hover:bg-[#FAF8F5]'
+                          : 'hover:bg-[#FAF8F5]'
                       }`}
                     >
                       <td className="px-4 py-3 max-w-xs">
                         <div className="flex items-center gap-2">
+                          {isOverdue && (
+                            <span className="shrink-0 text-[10px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded animate-pulse">
+                              ATRASADA
+                            </span>
+                          )}
                           {t.isBlocked && (
                             <span
                               title={`Bloqueada: ${t.blockerReason || 'Por proveedor/tercero'}`}
@@ -234,8 +263,12 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
                           <span className="text-[#A39E93]">-</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-[#6E665D]">
-                        {t.dueDate}
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md border ${dateAnalysis.badgeClass}`}>
+                            {dateAnalysis.badgeLabel}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-right text-[#6E665D] font-medium">
                         {(t.subtasks || []).length > 0 ? `${doneCount}/${(t.subtasks || []).length}` : '-'}

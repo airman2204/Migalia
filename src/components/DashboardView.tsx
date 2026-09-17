@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { Task, Partner, LogbookEntry, Milestone } from '@/types';
-import { CheckCircle, Clock, AlertTriangle, TrendingUp, Users, ShieldAlert, DollarSign, ArrowRight } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, TrendingUp, Users, ShieldAlert, DollarSign, ArrowRight, AlertOctagon } from 'lucide-react';
+import { getOverdueMetrics } from '@/lib/taskImpactUtils';
 
 interface DashboardViewProps {
   tasks: Task[];
@@ -38,8 +39,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // El porcentaje de avance calcula exactamente tareas completadas / total de tareas
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // Análisis de Atrasos e Impacto Crítico
+  const overdueMetrics = getOverdueMetrics(tasks);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      {/* Alerta de Actividades Atrasadas e Impacto Financiero */}
+      {overdueMetrics.overdueCount > 0 && (
+        <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-3xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 bg-white/10 rounded-2xl shrink-0 backdrop-blur-xs border border-white/20">
+              <AlertOctagon className="w-6 h-6 text-white animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest bg-black/30 px-2.5 py-0.5 rounded-full text-red-200">
+                  Control Estricto de Fechas
+                </span>
+                <span className="text-xs font-bold text-red-100">
+                  +{overdueMetrics.maxDaysOverdue} días de retraso máximo
+                </span>
+              </div>
+              <h3 className="text-lg font-bold mt-1">
+                {overdueMetrics.overdueCount} {overdueMetrics.overdueCount === 1 ? 'actividad vencida' : 'actividades vencidas'} fuera de cronograma
+              </h3>
+              <p className="text-xs text-red-100/90 mt-0.5">
+                Impacto presupuestal en riesgo:{' '}
+                <span className="font-bold underline decoration-white/50 text-white">
+                  ${overdueMetrics.totalFinancialImpact.toLocaleString('es-MX')} MXN
+                </span>
+                . Requiere atención prioritaria para no comprometer la fecha de apertura.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onGoToTab('kanban')}
+            className="self-start md:self-auto shrink-0 bg-white text-red-700 hover:bg-red-50 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2"
+          >
+            <span>Ver en Tablero</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Top Banner de Resumen */}
       <div className="bg-[#FFFFFF] border border-[#E6DFD5] rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
