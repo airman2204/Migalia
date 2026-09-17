@@ -207,11 +207,23 @@ export default function Home() {
           setBudget(Number(dbSettings.budget));
         }
 
-        // Cargar Tareas
+        // Cargar Tareas y Chat Histórico
         const { data: dbTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
         if (dbTasks) {
+          // Extraer historial de chat si existe en la base de datos
+          const chatMeta = dbTasks.find((t) => t.id === 'meta-chat-history');
+          if (chatMeta && Array.isArray(chatMeta.subtasks) && chatMeta.subtasks.length > 0) {
+            setChatMessages(chatMeta.subtasks);
+            try {
+              localStorage.setItem('migalia_partners_chat', JSON.stringify(chatMeta.subtasks));
+            } catch (e) {}
+          }
+
+          // Filtrar meta-registros del listado de tareas visibles
+          const normalTasks = dbTasks.filter((t) => t.id !== 'meta-chat-history');
+
           setTasks(
-            dbTasks.map((t) => {
+            normalTasks.map((t) => {
               const rawSubtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
               const metaCost = rawSubtasks.find((s: any) => s.id === 'meta-cost');
               const cleanSubtasks = rawSubtasks.filter((s: any) => s.id !== 'meta-cost');
@@ -364,7 +376,11 @@ export default function Home() {
           setChatMessages((prev) => {
             const exists = prev.some((m) => m.id === payload.id);
             if (exists) return prev;
-            return [...prev, payload];
+            const updated = [...prev, payload];
+            try {
+              localStorage.setItem('migalia_partners_chat', JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
           });
           // Sonido de Pop elegante y aumento de contador de no leídos
           soundManager.playChatPop();
@@ -1004,17 +1020,31 @@ export default function Home() {
         currentPartner={currentPartner}
         partners={partners}
         messages={chatMessages}
-        onSendMessage={(newMsg) => {
-          setChatMessages((prev) => [...prev, newMsg]);
+        onSendMessage={async (newMsg) => {
+          const updated = [...chatMessages, newMsg];
+          setChatMessages(updated);
           try {
-            localStorage.setItem('migalia_partners_chat', JSON.stringify([...chatMessages, newMsg]));
+            localStorage.setItem('migalia_partners_chat', JSON.stringify(updated));
             // Transmitir mensaje en tiempo real por Supabase Broadcast
             supabase.channel('migalia_presence').send({
               type: 'broadcast',
               event: 'new_chat_message',
               payload: newMsg,
             });
-          } catch (e) {}
+            // Persistir en Supabase para sincronización multi-computadora / nube
+            await supabase.from('tasks').upsert({
+              id: 'meta-chat-history',
+              title: 'Chat Interno de Socios',
+              description: 'Historial de mensajes compartidos en la nube',
+              status: 'done',
+              priority: 'low',
+              assigned_to: currentPartner?.id || 'partner-1',
+              category: 'General',
+              subtasks: updated,
+            });
+          } catch (e) {
+            console.error('Error syncing chat to cloud:', e);
+          }
         }}
         onLaunchMeeting={(title) => {
           setIsChatOpen(false);
