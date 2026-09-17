@@ -320,6 +320,8 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                               <option value="LT">LT</option>
                               <option value="ML">ML</option>
                               <option value="PZA">PZA</option>
+                              <option value="TSP">TSP</option>
+                              <option value="TBSP">TBSP</option>
                               <option value="C/S">C/S</option>
                             </select>
                           </td>

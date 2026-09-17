@@ -133,7 +133,7 @@ export interface RecipeIngredient {
   /** Cantidad o gramaje requerido para el lote (ej. 0.250 KG) */
   quantity: number;
   /** Unidad de medida reglamentaria */
-  unit: 'KG' | 'GR' | 'LT' | 'ML' | 'PZA' | 'C/S' | string;
+  unit: 'KG' | 'GR' | 'LT' | 'ML' | 'PZA' | 'TSP' | 'TBSP' | 'C/S' | string;
   /** Costo Unitario de adquisición (C/U) */
   unitCost: number;
   /** Costo Total calculado: quantity * unitCost (C/T) */

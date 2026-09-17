@@ -473,12 +473,29 @@ export default function Home() {
       })
       .subscribe();
 
+    // Sincronización al enfocar la pestaña / volver a la ventana (Cero necesidad de F5)
+    const handleWindowFocus = () => {
+      loadDataFromSupabase();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleWindowFocus);
+    }
+
+    // Polling ligero de respaldo cada 12 segundos para garantizar sincronización perfecta si el websocket se congela
+    const syncInterval = setInterval(() => {
+      loadDataFromSupabase();
+    }, 12000);
+
     // Solicitar permiso para notificaciones nativas del navegador
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
 
     return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', handleWindowFocus);
+      }
+      clearInterval(syncInterval);
       presenceChannel.untrack();
       supabase.removeChannel(presenceChannel);
       supabase.removeChannel(dbChangesChannel);
