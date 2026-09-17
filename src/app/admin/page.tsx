@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar, ActiveTab } from '@/components/Sidebar';
 import { DashboardView } from '@/components/DashboardView';
@@ -106,6 +106,8 @@ export default function Home() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
+  const presenceChannelRef = useRef<any>(null);
   const [isGlobalMeetingOpen, setIsGlobalMeetingOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -147,6 +149,30 @@ export default function Home() {
     callerName: string;
     meetingTitle?: string;
   } | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  const handleRequestNotificationPermission = useCallback(async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        setNotificationPermission(perm);
+        if (perm === 'granted') {
+          new Notification('MIGALIA', {
+            body: '¡Notificaciones activadas! Recibirás avisos cuando tus socios te escriban.',
+            icon: '/icon.png',
+          });
+        }
+      } catch (e) {
+        console.error('Error requesting notification permission:', e);
+      }
+    }
+  }, []);
 
   // Atajo de Teclado Global: Ctrl + K / Cmd + K para abrir buscador
   useEffect(() => {
@@ -369,6 +395,7 @@ export default function Home() {
         },
       },
     });
+    presenceChannelRef.current = presenceChannel;
 
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
@@ -547,6 +574,27 @@ export default function Home() {
       return assigned.includes(selectedPartnerFilter);
     });
   }, [tasks, selectedPartnerFilter]);
+
+  // Emisor centralizado de eventos Broadcast en tiempo real (reutilizando canal activo)
+  const sendBroadcast = useCallback((event: string, payload: any) => {
+    try {
+      if (presenceChannelRef.current) {
+        presenceChannelRef.current.send({
+          type: 'broadcast',
+          event,
+          payload,
+        });
+      } else {
+        supabase.channel('migalia_presence').send({
+          type: 'broadcast',
+          event,
+          payload,
+        });
+      }
+    } catch (e) {
+      console.error('Error sending broadcast:', e);
+    }
+  }, []);
 
   // 2. Operaciones con Tareas en Supabase
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
@@ -938,6 +986,8 @@ export default function Home() {
           }}
           unreadCount={unreadChatCount}
           onOpenSearch={() => setIsSearchOpen(true)}
+          notificationPermission={notificationPermission}
+          onRequestNotificationPermission={handleRequestNotificationPermission}
         />
       </div>
 
@@ -1231,6 +1281,8 @@ export default function Home() {
       {/* Drawer de Chat Interno entre Socios */}
       <PartnersChatDrawer
         isOpen={isChatOpen}
+        isMinimized={isChatMinimized}
+        onToggleMinimize={() => setIsChatMinimized(!isChatMinimized)}
         onClose={() => setIsChatOpen(false)}
         currentPartner={currentPartner}
         partners={partners}
@@ -1241,11 +1293,7 @@ export default function Home() {
           try {
             localStorage.setItem('migalia_partners_chat', JSON.stringify(updated));
             // Transmitir mensaje en tiempo real por Supabase Broadcast
-            supabase.channel('migalia_presence').send({
-              type: 'broadcast',
-              event: 'new_chat_message',
-              payload: newMsg,
-            });
+            sendBroadcast('new_chat_message', newMsg);
             // Persistir en Supabase para sincronización multi-computadora / nube
             await supabase.from('tasks').upsert({
               id: 'meta-chat-history',
@@ -1265,17 +1313,11 @@ export default function Home() {
           setIsChatOpen(false);
           setActiveMeetingData(title ? { title } : null);
           // Notificar llamada
-          try {
-            supabase.channel('migalia_presence').send({
-              type: 'broadcast',
-              event: 'incoming_call',
-              payload: {
-                callerId: currentPartner?.id,
-                callerName: currentPartner?.name || 'Mario',
-                meetingTitle: title || 'Sesión de Acuerdos',
-              },
-            });
-          } catch (e) {}
+          sendBroadcast('incoming_call', {
+            callerId: currentPartner?.id,
+            callerName: currentPartner?.name || 'Mario',
+            meetingTitle: title || 'Sesión de Acuerdos',
+          });
           setIsGlobalMeetingOpen(true);
         }}
       />
@@ -1333,12 +1375,13 @@ export default function Home() {
         }}
       />
 
-      {/* Toast de Notificación de Chat Entrante */}
-      {chatNotification && !isChatOpen && (
+      {/* Toast de Notificación de Chat Entrante (Visible si el chat está cerrado o minimizado) */}
+      {chatNotification && (!isChatOpen || isChatMinimized) && (
         <ChatToast
           notification={chatNotification}
           onOpenChat={() => {
             setIsChatOpen(true);
+            setIsChatMinimized(false);
             setUnreadChatCount(0);
             setChatNotification(null);
           }}

@@ -23,6 +23,8 @@ interface PartnersChatDrawerProps {
   onLaunchMeeting: (title?: string) => void;
   messages: ChatMessage[];
   onSendMessage: (msg: ChatMessage) => void;
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
 }
 
 export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
@@ -33,10 +35,14 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
   onLaunchMeeting,
   messages,
   onSendMessage,
+  isMinimized: externalMinimized,
+  onToggleMinimize,
 }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [remoteTyping, setRemoteTyping] = useState<string | null>(null);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [internalMinimized, setInternalMinimized] = useState(false);
+  const isMinimized = externalMinimized !== undefined ? externalMinimized : internalMinimized;
+  const toggleMinimize = onToggleMinimize || (() => setInternalMinimized(!internalMinimized));
   const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<any>(null);
@@ -134,7 +140,7 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
       <div className="bg-white text-stone-900 w-full h-full rounded-2xl shadow-2xl border border-stone-300/80 flex flex-col overflow-hidden ring-1 ring-black/10">
         {/* Header de la Ventana Flotante */}
         <div
-          onClick={() => isMinimized && setIsMinimized(false)}
+          onClick={() => isMinimized && toggleMinimize()}
           className="px-3.5 py-2.5 bg-stone-900 text-white flex items-center justify-between cursor-pointer select-none shrink-0 border-b border-stone-800"
         >
           <div className="flex items-center gap-2.5 min-w-0">
@@ -191,7 +197,7 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
 
             <button
               type="button"
-              onClick={() => setIsMinimized(!isMinimized)}
+              onClick={toggleMinimize}
               className="p-1 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition"
               title={isMinimized ? 'Restaurar' : 'Minimizar'}
             >
