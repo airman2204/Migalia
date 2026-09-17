@@ -295,7 +295,7 @@ export default function Home() {
 
         // Extraer documentos compartidos si existen en la nube
         const docsMeta = dbTasks.find((t) => t.id === 'meta-docs-vault');
-        if (docsMeta && Array.isArray(docsMeta.subtasks) && docsMeta.subtasks.length > 0) {
+        if (docsMeta && Array.isArray(docsMeta.subtasks)) {
           setDocuments(docsMeta.subtasks);
           try {
             localStorage.setItem('migalia_documents', JSON.stringify(docsMeta.subtasks));
@@ -922,8 +922,24 @@ export default function Home() {
   };
 
   const handleSyncDocuments = async (syncedDocs: MigaliaDocument[]) => {
-    // Mezclar documentos existentes preservando carpetas personalizadas o pines
-    const existingMap = new Map(documents.map((d) => [d.id, d]));
+    // 1. Obtener conjunto de IDs válidos actualmente en Google Drive
+    const driveDocIds = new Set(syncedDocs.map((sd) => sd.id));
+    
+    // 2. Filtrar los documentos locales de Google Drive que ya no existan en la carpeta de Drive
+    // Los documentos manuales creados como 'doc-*' se conservan a menos que apunten a un ID de archivo de Drive que ya fue borrado
+    const validDriveFileIds = new Set(syncedDocs.map((sd) => sd.id.replace('drive-', '')));
+
+    const currentNonDrive = documents.filter((d) => {
+      // Si el documento tiene un ID de Google Doc en su URL, verificar si aún existe en Drive
+      const match = d.googleUrl?.match(/\/d\/([a-zA-Z0-9_-]+)/) || d.content?.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return validDriveFileIds.has(match[1]);
+      }
+      return !d.id.startsWith('drive-');
+    });
+
+    // 3. Mezclar manteniendo carpetas o pines
+    const existingMap = new Map(currentNonDrive.map((d) => [d.id, d]));
     syncedDocs.forEach((sd) => {
       const existing = existingMap.get(sd.id);
       if (existing) {
@@ -962,6 +978,8 @@ export default function Home() {
   };
 
   const handleDeleteDocument = async (docId: string) => {
+    // Buscar si el documento tiene un archivo asociado de Google Drive
+    const docToDelete = documents.find((d) => d.id === docId);
     const updated = documents.filter((d) => d.id !== docId);
     setDocuments(updated);
     try {
