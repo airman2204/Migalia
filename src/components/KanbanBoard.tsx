@@ -108,7 +108,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   >
                     {colTasks.map((task, index) => {
                       const partner = getPartner(task.assignedTo);
-                      const completedSubtasks = task.subtasks.filter((s) => s.completed).length;
+                      const completedSubtasks = (task.subtasks || []).filter((s) => s.completed).length;
 
                       return (
                         <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -150,11 +150,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                 </div>
                               )}
 
-                              {task.subtasks.length > 0 && (
+                              {(task.subtasks || []).length > 0 && (
                                 <div className="flex items-center gap-1.5 text-[11px] text-[#6E665D] mb-2 bg-[#F8F6F0] px-2 py-1 rounded-md">
                                   <CheckSquare className="w-3 h-3 text-[#8C6239]" />
                                   <span>
-                                    {completedSubtasks}/{task.subtasks.length} subtareas
+                                    {completedSubtasks}/{(task.subtasks || []).length} subtareas
                                   </span>
                                 </div>
                               )}

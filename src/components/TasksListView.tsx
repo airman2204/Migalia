@@ -159,7 +159,7 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
               ) : (
                 filteredTasks.map((t) => {
                   const partner = getPartner(t.assignedTo);
-                  const doneCount = t.subtasks.filter((s) => s.completed).length;
+                  const doneCount = (t.subtasks || []).filter((s) => s.completed).length;
 
                   return (
                     <tr
@@ -238,7 +238,7 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
                         {t.dueDate}
                       </td>
                       <td className="px-3 py-3 text-right text-[#6E665D] font-medium">
-                        {t.subtasks.length > 0 ? `${doneCount}/${t.subtasks.length}` : '-'}
+                        {(t.subtasks || []).length > 0 ? `${doneCount}/${(t.subtasks || []).length}` : '-'}
                       </td>
                     </tr>
                   );

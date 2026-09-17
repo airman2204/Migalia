@@ -88,19 +88,19 @@ export default function KanbanBoardView({ tasks, onStatusChange }: KanbanProps) 
                       </h4>
 
                       {/* Subtareas Progress */}
-                      {task.subtasks.length > 0 && (
+                      {(task.subtasks || []).length > 0 && (
                         <div className="text-[11px] text-[#7A6658] bg-[#FAF6EF] p-2 rounded-lg border border-[#E2D7CB]/60">
                           <div className="flex justify-between mb-1 text-[10px]">
                             <span>Subtareas</span>
                             <span className="font-mono">
-                              {task.subtasks.filter((st) => st.completed).length}/{task.subtasks.length}
+                              {(task.subtasks || []).filter((st) => st.completed).length}/{(task.subtasks || []).length}
                             </span>
                           </div>
                           <div className="w-full bg-[#E2D7CB] h-1.5 rounded-full overflow-hidden">
                             <div
                               className="bg-[#A07835] h-full"
                               style={{
-                                width: `${(task.subtasks.filter((st) => st.completed).length / task.subtasks.length) * 100}%`,
+                                width: `${((task.subtasks || []).filter((st) => st.completed).length / (task.subtasks || []).length) * 100}%`,
                               }}
                             />
                           </div>

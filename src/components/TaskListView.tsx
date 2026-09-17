@@ -83,13 +83,13 @@ export default function TaskListView({ tasks: initialTasks, onToggleSubtask }: T
             <h3 className="font-serif font-bold text-base text-[#2B1D19]">{task.title}</h3>
 
             {/* Checklists anidados */}
-            {task.subtasks.length > 0 && (
+            {(task.subtasks || []).length > 0 && (
               <div className="bg-[#FAF6EF] p-3 rounded-xl border border-[#E2D7CB]/60 space-y-2 mt-2">
                 <span className="text-[11px] uppercase font-bold text-[#7A6658] block tracking-wider">
                   Checklist de Subtareas:
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {task.subtasks.map((st) => (
+                  {(task.subtasks || []).map((st) => (
                     <div
                       key={st.id}
                       onClick={() => onToggleSubtask(task.id, st.id)}
