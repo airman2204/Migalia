@@ -16,7 +16,7 @@ export default function VendorsCRMView({ vendors: initialVendors }: VendorProps)
   const categories = ['Todas', 'Maquinaria', 'Café', 'Harinas/Materia Prima', 'Empaques']
 
   const filteredVendors = vendors.filter((v) => {
-    const matchesSearch = v.name.toLowerCase().includes(searchTerm.toLowerCase()) || v.service.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (v.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (v.service || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = filterCategory === 'Todas' || v.category === filterCategory
     return matchesSearch && matchesCategory
   })

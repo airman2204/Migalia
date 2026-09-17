@@ -112,7 +112,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     // 4. Buscar en Documentos
     documents.forEach((d) => {
       const folderStr = d.folder || 'Documentos';
-      if (d.title.toLowerCase().includes(q) || folderStr.toLowerCase().includes(q)) {
+      if ((d.title || '').toLowerCase().includes(q) || folderStr.toLowerCase().includes(q)) {
         found.push({
           id: d.id,
           title: d.title,

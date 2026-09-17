@@ -123,8 +123,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
       if (!term) return true;
       return (
-        d.title.toLowerCase().includes(term) ||
-        d.folder.toLowerCase().includes(term) ||
+        (d.title || '').toLowerCase().includes(term) ||
+        (d.folder || '').toLowerCase().includes(term) ||
         (d.authorName || '').toLowerCase().includes(term)
       );
     });
