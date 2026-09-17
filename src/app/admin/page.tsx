@@ -292,14 +292,60 @@ export default function Home() {
           });
         }
 
-        // Extraer recetas compartidas si existen en la nube
+        // Extraer recetas compartidas si existen en la nube y sincronización bidireccional
         const recipesMeta = dbTasks.find((t) => t.id === 'meta-recipes-catalog');
-        if (recipesMeta && Array.isArray(recipesMeta.subtasks) && recipesMeta.subtasks.length > 0) {
-          setRecipes(recipesMeta.subtasks);
+        const dbRecipeList: Recipe[] = (recipesMeta && Array.isArray(recipesMeta.subtasks)) ? recipesMeta.subtasks : [];
+        
+        setRecipes((prev) => {
+          const recipeMap = new Map<string, Recipe>();
+          // 1. Iniciales / locales existentes
+          prev.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
+          // 2. LocalStorage por si hay recetas guardadas antes de recargar
           try {
-            localStorage.setItem('migalia_recipes', JSON.stringify(recipesMeta.subtasks));
+            const local = localStorage.getItem('migalia_recipes');
+            if (local) {
+              const parsed: Recipe[] = JSON.parse(local);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
+              }
+            }
           } catch (e) {}
-        }
+          // 3. Nube (Supabase)
+          dbRecipeList.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
+
+          const merged = Array.from(recipeMap.values());
+          try {
+            localStorage.setItem('migalia_recipes', JSON.stringify(merged));
+          } catch (e) {}
+
+          // Si hay recetas locales que no estaban en la base de datos (por ejemplo, creadas offline o en sesión no sincronizada),
+          // auto-sincronizar hacia Supabase para auto-reparar el catálogo.
+          if (merged.length > dbRecipeList.length) {
+            (async () => {
+              try {
+                await supabase.from('tasks').upsert({
+                  id: 'meta-recipes-catalog',
+                  title: 'Catálogo de Recetas y Fichas Técnicas',
+                  description: 'Recetas sincronizadas en la nube',
+                  status: 'done',
+                  priority: 'medium',
+                  assigned_to: currentPartner?.id || 'partner-2',
+                  category: 'Operaciones',
+                  subtasks: merged,
+                });
+                supabase.channel('migalia_presence').send({
+                  type: 'broadcast',
+                  event: 'data_changed',
+                  payload: { entity: 'recipes' },
+                });
+              } catch (err) {
+                console.error('Auto-sync recipes error:', err);
+              }
+            })();
+          }
+
+          return merged;
+        });
 
         // Extraer documentos compartidos si existen en la nube
         const docsMeta = dbTasks.find((t) => t.id === 'meta-docs-vault');
@@ -848,13 +894,37 @@ export default function Home() {
 
   // 6. Operaciones de Recetas & Fichas Técnicas
   const handleSaveRecipe = async (recipeData: Recipe) => {
-    const exists = recipes.some((r) => r.id === recipeData.id);
-    const updated = exists
-      ? recipes.map((r) => (r.id === recipeData.id ? recipeData : r))
-      : [recipeData, ...recipes];
-    setRecipes(updated);
+    // 1. Actualización optimista local
+    setRecipes((prev) => {
+      const exists = prev.some((r) => r.id === recipeData.id);
+      const updated = exists
+        ? prev.map((r) => (r.id === recipeData.id ? recipeData : r))
+        : [recipeData, ...prev];
+      try {
+        localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
     try {
-      localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      // 2. Traer la versión más reciente de la nube para no sobreescribir lo que el otro socio haya creado
+      const { data: currentMeta } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', 'meta-recipes-catalog')
+        .maybeSingle();
+
+      const remoteRecipes: Recipe[] = (currentMeta && Array.isArray(currentMeta.subtasks)) ? currentMeta.subtasks : [];
+      const recipeMap = new Map<string, Recipe>();
+      
+      // Añadir remotas
+      remoteRecipes.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
+      // Añadir la actual (creación o edición)
+      recipeMap.set(recipeData.id, recipeData);
+
+      const finalRecipes = Array.from(recipeMap.values());
+
+      // 3. Persistir en Supabase
       await supabase.from('tasks').upsert({
         id: 'meta-recipes-catalog',
         title: 'Catálogo de Recetas y Fichas Técnicas',
@@ -863,15 +933,23 @@ export default function Home() {
         priority: 'medium',
         assigned_to: currentPartner?.id || 'partner-2',
         category: 'Operaciones',
-        subtasks: updated,
+        subtasks: finalRecipes,
       });
+
+      // 4. Actualizar estado y LocalStorage definitivos
+      setRecipes(finalRecipes);
+      try {
+        localStorage.setItem('migalia_recipes', JSON.stringify(finalRecipes));
+      } catch (e) {}
+
+      // 5. Broadcast en tiempo real para el otro socio
       supabase.channel('migalia_presence').send({
         type: 'broadcast',
         event: 'data_changed',
         payload: { entity: 'recipes' },
       });
     } catch (e) {
-      console.error('Error al guardar receta:', e);
+      console.error('Error al guardar receta en Supabase:', e);
     }
   };
 
