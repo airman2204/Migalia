@@ -34,7 +34,7 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
   });
 
   const getRecipeTotalCost = (r: Recipe) => {
-    return r.ingredients
+    return (r.ingredients || [])
       .filter((i) => !i.isSubrecipeTitle)
       .reduce((sum, i) => sum + (Number(i.totalCost) || 0), 0);
   };
@@ -194,8 +194,8 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredRecipes.map((recipe) => {
             const cost = getRecipeTotalCost(recipe);
-            const ingredientsCount = recipe.ingredients.filter((i) => !i.isSubrecipeTitle).length;
-            const subrecipesCount = recipe.ingredients.filter((i) => i.isSubrecipeTitle).length;
+            const ingredientsCount = (recipe.ingredients || []).filter((i) => !i.isSubrecipeTitle).length;
+            const subrecipesCount = (recipe.ingredients || []).filter((i) => i.isSubrecipeTitle).length;
 
             return (
               <div

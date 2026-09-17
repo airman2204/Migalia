@@ -8,7 +8,7 @@ interface PrintableRecipeProps {
 }
 
 export default function PrintableRecipe({ recipe }: PrintableRecipeProps) {
-  const totalCost = recipe.ingredients.reduce((acc, curr) => acc + (curr.costTotal || 0), 0)
+  const totalCost = (recipe.ingredients || []).reduce((acc, curr) => acc + (curr.costTotal || 0), 0)
 
   return (
     <div

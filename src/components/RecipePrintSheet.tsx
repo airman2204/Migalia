@@ -8,7 +8,7 @@ interface RecipePrintSheetProps {
 }
 
 export const RecipePrintSheet: React.FC<RecipePrintSheetProps> = ({ recipe }) => {
-  const totalCost = recipe.ingredients
+  const totalCost = (recipe.ingredients || [])
     .filter((ing) => !ing.isSubrecipeTitle)
     .reduce((sum, ing) => sum + (Number(ing.totalCost) || 0), 0);
 
@@ -77,7 +77,7 @@ export const RecipePrintSheet: React.FC<RecipePrintSheetProps> = ({ recipe }) =>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/80 font-mono text-[11px]">
-            {recipe.ingredients.map((ing, idx) => {
+            {(recipe.ingredients || []).map((ing, idx) => {
               if (ing.isSubrecipeTitle) {
                 return (
                   <tr key={ing.id || idx} className="bg-gray-100 font-bold font-sans">

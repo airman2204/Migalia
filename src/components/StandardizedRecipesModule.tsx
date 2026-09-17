@@ -146,7 +146,7 @@ export default function StandardizedRecipesModule() {
                     </span>
                     <h4 className="text-xs font-bold text-[#2B1D19] uppercase">{recipe.recipeName}</h4>
                     <span className="text-[10px] text-[#7A6658] block">
-                      {recipe.yieldServings} • {recipe.ingredients.length} Ingredientes
+                      {recipe.yieldServings} • {(recipe.ingredients || []).length} Ingredientes
                     </span>
                   </div>
 

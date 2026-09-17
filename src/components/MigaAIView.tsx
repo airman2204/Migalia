@@ -104,7 +104,7 @@ export const MigaAIView: React.FC<MigaAIViewProps> = ({
   // Estadísticas del Recetario Oficial
   const totalRecipes = recipes.length;
   const getRecipeTotalCost = useCallback(
-    (r: Recipe) => r.ingredients.reduce((acc, ing) => acc + (ing.totalCost || 0), 0),
+    (r: Recipe) => (r.ingredients || []).reduce((acc, ing) => acc + (ing.totalCost || 0), 0),
     []
   );
 
