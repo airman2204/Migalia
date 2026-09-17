@@ -53,8 +53,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
 
+  // Referencias para evitar que el polling de fondo resincronice el formulario mientras el usuario interactúa
+  const activeTaskIdRef = React.useRef<string | undefined>(undefined);
+  const prevIsOpenRef = React.useRef(false);
+
   React.useEffect(() => {
-    if (isOpen) {
+    const justOpened = isOpen && !prevIsOpenRef.current;
+    const taskChanged = task?.id !== activeTaskIdRef.current;
+
+    if (isOpen && (justOpened || taskChanged)) {
+      activeTaskIdRef.current = task?.id;
       setTitle(task?.title || '');
       setDescription(task?.description || '');
       setStatus(task?.status || 'todo');
@@ -67,10 +75,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       setActualCost(task?.actualCost !== undefined ? String(task.actualCost) : '');
       setIsBlocked(task?.isBlocked || false);
       setBlockerReason(task?.blockerReason || '');
-      setSubtasks(task?.subtasks || []);
+      setSubtasks(task?.subtasks ? task.subtasks.map((s) => ({ ...s })) : []);
       setNewSubtaskTitle('');
     }
-  }, [isOpen, task, partners]);
+
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, task?.id]);
 
   if (!isOpen) return null;
 
@@ -84,9 +94,33 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   };
 
   const handleToggleSubtask = (stId: string) => {
-    setSubtasks(
-      subtasks.map((st) => (st.id === stId ? { ...st, completed: !st.completed } : st))
+    const updated = subtasks.map((st) =>
+      st.id === stId ? { ...st, completed: !st.completed } : st
     );
+    setSubtasks(updated);
+
+    // Si todas las subtareas quedan completadas, pasar automáticamente a 'done' (Terminado)
+    if (updated.length > 0) {
+      const allDone = updated.every((s) => s.completed);
+      if (allDone && status !== 'done') {
+        setStatus('done');
+      } else if (!allDone && status === 'done') {
+        setStatus('in_progress');
+      }
+    }
+  };
+
+  const handleToggleAllSubtasks = () => {
+    const allAlreadyCompleted = subtasks.length > 0 && subtasks.every((s) => s.completed);
+    const newCompleted = !allAlreadyCompleted;
+    const updated = subtasks.map((s) => ({ ...s, completed: newCompleted }));
+    setSubtasks(updated);
+
+    if (newCompleted) {
+      setStatus('done');
+    } else if (status === 'done') {
+      setStatus('in_progress');
+    }
   };
 
   const handleDeleteSubtask = (stId: string) => {
@@ -350,9 +384,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
           {/* Subtasks / Checklist */}
           <div>
-            <label className="block text-xs font-semibold text-[#221F1D] mb-1.5">
-              Checklist de Subtareas ({subtasks.filter((s) => s.completed).length}/{subtasks.length})
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-[#221F1D]">
+                Checklist de Subtareas ({subtasks.filter((s) => s.completed).length}/{subtasks.length})
+              </label>
+              {subtasks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleToggleAllSubtasks}
+                  className="text-[10px] font-bold text-[#8C6239] hover:text-[#C59B27] underline decoration-dotted"
+                >
+                  {subtasks.every((s) => s.completed) ? 'Desmarcar todo' : 'Marcar todo como completado'}
+                </button>
+              )}
+            </div>
             <div className="space-y-1.5 mb-2">
               {subtasks.map((st) => (
                 <div
