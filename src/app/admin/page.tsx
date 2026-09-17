@@ -294,19 +294,32 @@ export default function Home() {
 
         // Extraer recetas compartidas si existen en la nube y sincronización bidireccional
         const recipesMeta = dbTasks.find((t) => t.id === 'meta-recipes-catalog');
-        const dbRecipeList: Recipe[] = (recipesMeta && Array.isArray(recipesMeta.subtasks)) ? recipesMeta.subtasks : [];
+        const rawDbRecipeList: any[] = (recipesMeta && Array.isArray(recipesMeta.subtasks)) ? recipesMeta.subtasks : [];
+
+        // Normalizar receta para garantizar que arrays críticos nunca sean undefined
+        const normalizeRecipe = (r: any): Recipe => ({
+          ...r,
+          id: r.id || String(Date.now()),
+          title: r.title || 'Sin título',
+          ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
+          miseEnPlace: Array.isArray(r.miseEnPlace) ? r.miseEnPlace : [],
+          preparation: Array.isArray(r.preparation) ? r.preparation : [],
+          category: r.category || 'General',
+        });
+
+        const dbRecipeList: Recipe[] = rawDbRecipeList.map(normalizeRecipe);
         
         setRecipes((prev) => {
           const recipeMap = new Map<string, Recipe>();
           // 1. Iniciales / locales existentes
-          prev.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
+          prev.forEach((r) => { if (r?.id) recipeMap.set(r.id, normalizeRecipe(r)); });
           // 2. LocalStorage por si hay recetas guardadas antes de recargar
           try {
             const local = localStorage.getItem('migalia_recipes');
             if (local) {
-              const parsed: Recipe[] = JSON.parse(local);
+              const parsed: any[] = JSON.parse(local);
               if (Array.isArray(parsed)) {
-                parsed.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
+                parsed.forEach((r) => { if (r?.id) recipeMap.set(r.id, normalizeRecipe(r)); });
               }
             }
           } catch (e) {}

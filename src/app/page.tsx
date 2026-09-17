@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import ComingSoonPage from './coming-soon/page';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 // Cargar AdminPage solo en el navegador (Client-side) sin prerenderizado en el servidor
 const AdminPage = dynamic(() => import('./admin/page'), {
@@ -30,7 +31,11 @@ export default function Home() {
   }
 
   if (isAdminSubdomain) {
-    return <AdminPage />;
+    return (
+      <ErrorBoundary>
+        <AdminPage />
+      </ErrorBoundary>
+    );
   }
 
   return <ComingSoonPage />;
