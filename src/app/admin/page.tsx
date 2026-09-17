@@ -210,12 +210,37 @@ export default function Home() {
         setCurrentPartner((prev) => prev || parsed);
       }
 
-      // Cargar perfiles de socios
+      // Cargar perfiles de socios y verificar presencia vía Heartbeat persistente
       const { data: dbPartners } = await supabase.from('profiles').select('*');
+      
+      // Buscar latidos en meta-presence-heartbeat para saber quién está en línea sin depender exclusivamente de WebSockets
+      let activeHeartbeats: Record<string, number> = {};
+      try {
+        const { data: hbTask } = await supabase.from('tasks').select('*').eq('id', 'meta-presence-heartbeat').maybeSingle();
+        if (hbTask && Array.isArray(hbTask.subtasks)) {
+          const now = Date.now();
+          hbTask.subtasks.forEach((hb: any) => {
+            if (hb?.lastSeen && (now - Number(hb.lastSeen) < 70000)) { // Activo en los últimos 70 segundos
+              if (hb.partnerId) activeHeartbeats[String(hb.partnerId).toLowerCase()] = Number(hb.lastSeen);
+              if (hb.email) activeHeartbeats[String(hb.email).toLowerCase()] = Number(hb.lastSeen);
+              if (hb.shortName) activeHeartbeats[String(hb.shortName).toLowerCase()] = Number(hb.lastSeen);
+            }
+          });
+        }
+      } catch (hbErr) {}
+
       if (dbPartners && dbPartners.length > 0) {
         setPartners((prev) =>
           dbPartners.map((p) => {
-            const existing = prev.find((x) => x.id === p.id);
+            const existing = prev.find((x) => x.id === p.id || (x.email && p.email && x.email.toLowerCase() === p.email.toLowerCase()));
+            const isMe = currentPartner?.id === p.id || (currentPartner?.email && p.email && currentPartner.email.toLowerCase() === p.email.toLowerCase());
+            
+            const hasActiveHb = Boolean(
+              activeHeartbeats[p.id?.toLowerCase()] ||
+              (p.email && activeHeartbeats[p.email.toLowerCase()]) ||
+              (p.short_name && activeHeartbeats[p.short_name.toLowerCase()])
+            );
+
             return {
               id: p.id,
               name: p.name,
@@ -223,7 +248,7 @@ export default function Home() {
               email: p.email,
               role: p.role,
               avatar: p.avatar || 'M',
-              isOnline: existing?.isOnline ?? false,
+              isOnline: Boolean(isMe || existing?.isOnline || hasActiveHb),
             };
           })
         );
@@ -392,8 +417,9 @@ export default function Home() {
         Object.values(state).forEach((presences: any) => {
           if (Array.isArray(presences)) {
             presences.forEach((p) => {
-              if (p.partnerId) onlineIdentifiers.add(p.partnerId.toLowerCase());
-              if (p.email) onlineIdentifiers.add(p.email.toLowerCase());
+              if (p.partnerId) onlineIdentifiers.add(String(p.partnerId).toLowerCase());
+              if (p.email) onlineIdentifiers.add(String(p.email).toLowerCase());
+              if (p.shortName) onlineIdentifiers.add(String(p.shortName).toLowerCase());
             });
           }
         });
@@ -402,15 +428,17 @@ export default function Home() {
           prev.map((p) => {
             const isMe =
               p.id === currentPartner.id ||
-              Boolean(p.email && currentPartner.email && p.email.toLowerCase() === currentPartner.email.toLowerCase());
+              Boolean(p.email && currentPartner.email && p.email.toLowerCase() === currentPartner.email.toLowerCase()) ||
+              Boolean(p.shortName && currentPartner.shortName && p.shortName.toLowerCase() === currentPartner.shortName.toLowerCase());
 
             const isOnlineInSupabase =
               onlineIdentifiers.has(p.id.toLowerCase()) ||
-              Boolean(p.email && onlineIdentifiers.has(p.email.toLowerCase()));
+              Boolean(p.email && onlineIdentifiers.has(p.email.toLowerCase())) ||
+              Boolean(p.shortName && onlineIdentifiers.has(p.shortName.toLowerCase()));
 
             return {
               ...p,
-              isOnline: Boolean(isMe || isOnlineInSupabase),
+              isOnline: Boolean(isMe || isOnlineInSupabase || p.isOnline),
             };
           })
         );
@@ -418,14 +446,25 @@ export default function Home() {
       .on('presence', { event: 'join' }, ({ key }) => {
         const joinedId = key.toLowerCase();
         setPartners((prev) =>
-          prev.map((p) => (p.id.toLowerCase() === joinedId ? { ...p, isOnline: true } : p))
+          prev.map((p) =>
+            p.id.toLowerCase() === joinedId ||
+            (p.email && p.email.toLowerCase() === joinedId) ||
+            (p.shortName && p.shortName.toLowerCase() === joinedId)
+              ? { ...p, isOnline: true }
+              : p
+          )
         );
       })
       .on('presence', { event: 'leave' }, ({ key }) => {
         const leftId = key.toLowerCase();
         setPartners((prev) =>
           prev.map((p) => {
-            if (p.id.toLowerCase() === leftId && p.id !== currentPartner.id) {
+            const isMatch =
+              p.id.toLowerCase() === leftId ||
+              (p.email && p.email.toLowerCase() === leftId) ||
+              (p.shortName && p.shortName.toLowerCase() === leftId);
+
+            if (isMatch && p.id !== currentPartner.id) {
               return { ...p, isOnline: false };
             }
             return p;
@@ -485,16 +524,59 @@ export default function Home() {
             partnerId: currentPartner.id,
             email: currentPartner.email,
             partnerName: currentPartner.name,
+            shortName: currentPartner.shortName,
             onlineAt: new Date().toISOString(),
           });
         }
       });
 
+    // Enviar latido periódico (Heartbeat) cada 20 segundos a la base de datos Supabase
+    // Esto asegura que la presencia sea 100% precisa incluso si los WebSockets se suspenden o reconectan
+    const sendHeartbeat = async () => {
+      try {
+        const { data: hbTask } = await supabase.from('tasks').select('*').eq('id', 'meta-presence-heartbeat').maybeSingle();
+        const now = Date.now();
+        let existingHbs: any[] = [];
+        if (hbTask && Array.isArray(hbTask.subtasks)) {
+          existingHbs = hbTask.subtasks.filter((h: any) => h && now - Number(h.lastSeen || 0) < 180000); // Guardar los últimos 3 min
+        }
+        // Actualizar o añadir mi latido
+        const myHb = {
+          partnerId: currentPartner.id,
+          email: currentPartner.email,
+          shortName: currentPartner.shortName,
+          lastSeen: now,
+        };
+        const filtered = existingHbs.filter(
+          (h: any) =>
+            h.partnerId !== currentPartner.id &&
+            (!h.email || !currentPartner.email || h.email.toLowerCase() !== currentPartner.email.toLowerCase())
+        );
+        filtered.push(myHb);
+
+        await supabase.from('tasks').upsert({
+          id: 'meta-presence-heartbeat',
+          title: 'Heartbeat de Presencia de Socios en Tiempo Real',
+          status: 'done',
+          priority: 'low',
+          category: 'Operaciones',
+          subtasks: filtered,
+        });
+      } catch (e) {}
+    };
+
+    // Emitir latido inmediato y cada 20 segundos
+    sendHeartbeat();
+    const heartbeatInterval = setInterval(sendHeartbeat, 20000);
+
     // Canal adicional para escuchar cambios directos en la Base de Datos Postgres (Realtime CDC)
     const dbChangesChannel = supabase
       .channel('migalia_db_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        loadDataFromSupabase();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        // Ignorar cambios de heartbeat para no causar loops de recarga pesada
+        if ((payload.new as any)?.id !== 'meta-presence-heartbeat') {
+          loadDataFromSupabase();
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'logbook' }, () => {
         loadDataFromSupabase();
@@ -512,6 +594,7 @@ export default function Home() {
 
     // Sincronización al enfocar la pestaña / volver a la ventana (Cero necesidad de F5)
     const handleWindowFocus = () => {
+      sendHeartbeat();
       loadDataFromSupabase();
     };
     if (typeof window !== 'undefined') {
@@ -533,6 +616,7 @@ export default function Home() {
         window.removeEventListener('focus', handleWindowFocus);
       }
       clearInterval(syncInterval);
+      clearInterval(heartbeatInterval);
       presenceChannel.untrack();
       supabase.removeChannel(presenceChannel);
       supabase.removeChannel(dbChangesChannel);

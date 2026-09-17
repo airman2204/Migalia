@@ -10,6 +10,8 @@ import {
   Minimize2,
   Maximize2,
   ChevronDown,
+  WifiOff,
+  Clock,
 } from 'lucide-react';
 
 import { soundManager } from '@/lib/soundEffects';
@@ -124,7 +126,8 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
     onLaunchMeeting(meetingTitle);
   };
 
-  const isOtherPartnerOnline = partners.some((p) => p.id !== currentPartner?.id && p.isOnline);
+  const otherPartner = partners.find((p) => p.id !== currentPartner?.id);
+  const isOtherPartnerOnline = Boolean(otherPartner?.isOnline);
 
   return (
     <aside
@@ -275,8 +278,24 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Barra de Entrada de Mensaje */}
-            <div className="p-2.5 bg-white border-t border-stone-200 shrink-0">
+            {/* Barra de Entrada de Mensaje con Aviso Offline */}
+            <div className="p-2.5 bg-white border-t border-stone-200 shrink-0 space-y-2">
+              {!isOtherPartnerOnline && (
+                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 leading-tight animate-in fade-in duration-200">
+                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 shrink-0">
+                    <Clock className="w-3 h-3 text-amber-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-amber-950 truncate">
+                      {otherPartner?.shortName || otherPartner?.name || 'Tu socio/a'} no está en línea
+                    </p>
+                    <p className="text-[10px] text-amber-800/90">
+                      Por el momento está offline. Recibirá tu mensaje en cuanto abra la plataforma.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -286,7 +305,11 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
               >
                 <input
                   type="text"
-                  placeholder="Escribe aquí... (Enter para enviar)"
+                  placeholder={
+                    !isOtherPartnerOnline
+                      ? `Escribe a ${otherPartner?.shortName || 'tu socio/a'} (lo verá al conectar)...`
+                      : 'Escribe aquí... (Enter para enviar)'
+                  }
                   value={inputMessage}
                   onChange={(e) => handleInputChange(e.target.value)}
                   className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all select-text"
