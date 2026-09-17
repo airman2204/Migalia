@@ -275,13 +275,21 @@ export default function Home() {
       // Cargar Tareas, Chat Histórico, Recetas y Documentos
       const { data: dbTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
       if (dbTasks) {
-        // Extraer historial de chat si existe
+        // Extraer historial de chat si existe y combinar atómicamente para no perder mensajes en vuelo
         const chatMeta = dbTasks.find((t) => t.id === 'meta-chat-history');
         if (chatMeta && Array.isArray(chatMeta.subtasks) && chatMeta.subtasks.length > 0) {
-          setChatMessages(chatMeta.subtasks);
-          try {
-            localStorage.setItem('migalia_partners_chat', JSON.stringify(chatMeta.subtasks));
-          } catch (e) {}
+          setChatMessages((prev) => {
+            const map = new Map();
+            // Cargar existentes
+            prev.forEach((m) => { if (m?.id) map.set(m.id, m); });
+            // Mezclar de la base de datos
+            chatMeta.subtasks.forEach((m: any) => { if (m?.id) map.set(m.id, m); });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('migalia_partners_chat', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
 
         // Extraer recetas compartidas si existen en la nube
@@ -621,7 +629,7 @@ export default function Home() {
       supabase.removeChannel(presenceChannel);
       supabase.removeChannel(dbChangesChannel);
     };
-  }, [currentPartner, partners, loadDataFromSupabase]);
+  }, [currentPartner?.id, loadDataFromSupabase]);
 
   // Manejador de Login
   const handleLogin = (partner: Partner) => {
@@ -1416,13 +1424,33 @@ export default function Home() {
         partners={partners}
         messages={chatMessages}
         onSendMessage={async (newMsg) => {
-          const updated = [...chatMessages, newMsg];
-          setChatMessages(updated);
+          setChatMessages((prev) => {
+            const exists = prev.some((m) => m.id === newMsg.id);
+            if (exists) return prev;
+            const updated = [...prev, newMsg];
+            try {
+              localStorage.setItem('migalia_partners_chat', JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
+          });
+
+          // Transmitir mensaje de inmediato en tiempo real por Supabase Broadcast
+          sendBroadcast('new_chat_message', newMsg);
+
+          // Persistir en Supabase de forma segura leyendo los mensajes más recientes para no sobrescribir mensajes concurrentes
           try {
-            localStorage.setItem('migalia_partners_chat', JSON.stringify(updated));
-            // Transmitir mensaje en tiempo real por Supabase Broadcast
-            sendBroadcast('new_chat_message', newMsg);
-            // Persistir en Supabase para sincronización multi-computadora / nube
+            const { data: latestChatTask } = await supabase
+              .from('tasks')
+              .select('*')
+              .eq('id', 'meta-chat-history')
+              .maybeSingle();
+
+            const existingList = Array.isArray(latestChatTask?.subtasks) ? latestChatTask.subtasks : [];
+            const map = new Map();
+            existingList.forEach((m: any) => { if (m?.id) map.set(m.id, m); });
+            map.set(newMsg.id, newMsg);
+            const finalList = Array.from(map.values());
+
             await supabase.from('tasks').upsert({
               id: 'meta-chat-history',
               title: 'Chat Interno de Socios',
@@ -1431,7 +1459,7 @@ export default function Home() {
               priority: 'low',
               assigned_to: currentPartner?.id || 'partner-1',
               category: 'General',
-              subtasks: updated,
+              subtasks: finalList,
             });
           } catch (e) {
             console.error('Error syncing chat to cloud:', e);
