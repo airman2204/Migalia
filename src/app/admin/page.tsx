@@ -22,6 +22,7 @@ import { MeetingRoomModal } from '@/components/MeetingRoomModal';
 import { MeetingsCalendarModal } from '@/components/MeetingsCalendarModal';
 import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { IncomingCallToast } from '@/components/IncomingCallToast';
+import { ChatToast } from '@/components/ChatToast';
 import { soundManager } from '@/lib/soundEffects';
 import { supabase } from '@/lib/supabase';
 
@@ -138,6 +139,10 @@ export default function Home() {
     ];
   });
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [chatNotification, setChatNotification] = useState<{
+    message: ChatMessage;
+    senderAvatar?: string;
+  } | null>(null);
   const [incomingCall, setIncomingCall] = useState<{
     callerName: string;
     meetingTitle?: string;
@@ -160,153 +165,181 @@ export default function Home() {
   const [selectedPartnerFilter, setSelectedPartnerFilter] = useState<'all' | string>('all');
 
   // 1. Cargar datos desde Supabase en la nube
-  useEffect(() => {
-    document.title = 'MIGALIA';
-    async function loadDataFromSupabase() {
-      try {
-        // Sesión local del socio
-        const savedUser = localStorage.getItem('migalia_auth_partner');
-        if (savedUser) {
-          const parsed = JSON.parse(savedUser);
-          setCurrentPartner(parsed);
-          // Por defecto mostrar Vista Global ('all') para ver el panorama completo de las 15 tareas
-          setSelectedPartnerFilter('all');
-        }
+  const loadDataFromSupabase = useCallback(async () => {
+    try {
+      // Sesión local del socio
+      const savedUser = localStorage.getItem('migalia_auth_partner');
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        setCurrentPartner((prev) => prev || parsed);
+      }
 
-        // Cargar perfiles de socios
-        const { data: dbPartners } = await supabase.from('profiles').select('*');
-        if (dbPartners && dbPartners.length > 0) {
-          setPartners(
-            dbPartners.map((p) => ({
+      // Cargar perfiles de socios
+      const { data: dbPartners } = await supabase.from('profiles').select('*');
+      if (dbPartners && dbPartners.length > 0) {
+        setPartners((prev) =>
+          dbPartners.map((p) => {
+            const existing = prev.find((x) => x.id === p.id);
+            return {
               id: p.id,
               name: p.name,
               shortName: p.short_name,
               email: p.email,
               role: p.role,
               avatar: p.avatar || 'M',
-            }))
-          );
-        } else {
-          // Inicializar en DB con los socios por defecto
-          await supabase.from('profiles').upsert(
-            DEFAULT_PARTNERS.map((p) => ({
-              id: p.id,
-              name: p.name,
-              short_name: p.shortName,
-              email: p.email,
-              role: p.role,
-              avatar: p.avatar,
-            }))
-          );
-          setPartners(DEFAULT_PARTNERS);
-        }
-
-        // Cargar Presupuesto
-        const { data: dbSettings } = await supabase.from('project_settings').select('*').eq('id', 'main').single();
-        if (dbSettings) {
-          setBudget(Number(dbSettings.budget));
-        }
-
-        // Cargar Tareas y Chat Histórico
-        const { data: dbTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-        if (dbTasks) {
-          // Extraer historial de chat si existe en la base de datos
-          const chatMeta = dbTasks.find((t) => t.id === 'meta-chat-history');
-          if (chatMeta && Array.isArray(chatMeta.subtasks) && chatMeta.subtasks.length > 0) {
-            setChatMessages(chatMeta.subtasks);
-            try {
-              localStorage.setItem('migalia_partners_chat', JSON.stringify(chatMeta.subtasks));
-            } catch (e) {}
-          }
-
-          // Filtrar meta-registros del listado de tareas visibles
-          const normalTasks = dbTasks.filter((t) => t.id !== 'meta-chat-history');
-
-          setTasks(
-            normalTasks.map((t) => {
-              const rawSubtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
-              const metaCost = rawSubtasks.find((s: any) => s.id === 'meta-cost');
-              const cleanSubtasks = rawSubtasks.filter((s: any) => s.id !== 'meta-cost');
-
-              return {
-                id: t.id,
-                title: t.title,
-                description: t.description || '',
-                status: t.status as TaskStatus,
-                priority: t.priority as any,
-                assignedTo: t.assigned_to || '',
-                category: t.category as any,
-                startDate: t.start_date || (metaCost ? metaCost.startDate : '') || '',
-                dueDate: t.due_date || '',
-                estimatedCost: t.estimated_cost !== undefined && t.estimated_cost !== null
-                  ? Number(t.estimated_cost)
-                  : metaCost?.estimated !== undefined
-                  ? Number(metaCost.estimated)
-                  : undefined,
-                actualCost: t.actual_cost !== undefined && t.actual_cost !== null
-                  ? Number(t.actual_cost)
-                  : metaCost?.actual !== undefined
-                  ? Number(metaCost.actual)
-                  : undefined,
-                isBlocked: t.is_blocked !== undefined && t.is_blocked !== null
-                  ? !!t.is_blocked
-                  : !!metaCost?.isBlocked,
-                blockerReason: t.blocker_reason || metaCost?.blockerReason || '',
-                subtasks: cleanSubtasks,
-                createdAt: t.created_at,
-              };
-            })
-          );
-        }
-
-        // Cargar Bitácora
-        const { data: dbLogbook } = await supabase.from('logbook').select('*').order('date', { ascending: false });
-        if (dbLogbook) {
-          setLogbook(
-            dbLogbook.map((l) => ({
-              id: l.id,
-              title: l.title,
-              content: l.content,
-              category: l.category as any,
-              authorId: l.author_id || '',
-              authorName: l.author_name,
-              date: l.date,
-            }))
-          );
-        }
-
-        // Cargar Hitos
-        const { data: dbMilestones } = await supabase.from('milestones').select('*').order('deadline', { ascending: true });
-        if (dbMilestones && dbMilestones.length > 0) {
-          setMilestones(
-            dbMilestones.map((m) => ({
-              id: m.id,
-              title: m.title,
-              phase: m.phase,
-              deadline: m.deadline,
-              status: m.status as any,
-              progress: m.progress,
-            }))
-          );
-        } else {
-          setMilestones([]);
-        }
-      } catch (err) {
-        console.error('Error al conectar con Supabase:', err);
-      } finally {
-        setIsLoaded(true);
+              isOnline: existing?.isOnline ?? false,
+            };
+          })
+        );
+      } else {
+        await supabase.from('profiles').upsert(
+          DEFAULT_PARTNERS.map((p) => ({
+            id: p.id,
+            name: p.name,
+            short_name: p.shortName,
+            email: p.email,
+            role: p.role,
+            avatar: p.avatar,
+          }))
+        );
+        setPartners(DEFAULT_PARTNERS);
       }
-    }
 
-    loadDataFromSupabase();
+      // Cargar Presupuesto
+      const { data: dbSettings } = await supabase.from('project_settings').select('*').eq('id', 'main').single();
+      if (dbSettings) {
+        setBudget(Number(dbSettings.budget));
+      }
+
+      // Cargar Tareas, Chat Histórico, Recetas y Documentos
+      const { data: dbTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+      if (dbTasks) {
+        // Extraer historial de chat si existe
+        const chatMeta = dbTasks.find((t) => t.id === 'meta-chat-history');
+        if (chatMeta && Array.isArray(chatMeta.subtasks) && chatMeta.subtasks.length > 0) {
+          setChatMessages(chatMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_partners_chat', JSON.stringify(chatMeta.subtasks));
+          } catch (e) {}
+        }
+
+        // Extraer recetas compartidas si existen en la nube
+        const recipesMeta = dbTasks.find((t) => t.id === 'meta-recipes-catalog');
+        if (recipesMeta && Array.isArray(recipesMeta.subtasks) && recipesMeta.subtasks.length > 0) {
+          setRecipes(recipesMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_recipes', JSON.stringify(recipesMeta.subtasks));
+          } catch (e) {}
+        }
+
+        // Extraer documentos compartidos si existen en la nube
+        const docsMeta = dbTasks.find((t) => t.id === 'meta-docs-vault');
+        if (docsMeta && Array.isArray(docsMeta.subtasks) && docsMeta.subtasks.length > 0) {
+          setDocuments(docsMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_documents', JSON.stringify(docsMeta.subtasks));
+          } catch (e) {}
+        }
+
+        // Extraer calendario compartido si existe en la nube
+        const meetingsMeta = dbTasks.find((t) => t.id === 'meta-meetings-calendar');
+        if (meetingsMeta && Array.isArray(meetingsMeta.subtasks) && meetingsMeta.subtasks.length > 0) {
+          setMeetings(meetingsMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(meetingsMeta.subtasks));
+          } catch (e) {}
+        }
+
+        // Filtrar meta-registros del listado de tareas visibles
+        const normalTasks = dbTasks.filter((t) => !t.id.startsWith('meta-'));
+
+        setTasks(
+          normalTasks.map((t) => {
+            const rawSubtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+            const metaCost = rawSubtasks.find((s: any) => s.id === 'meta-cost');
+            const cleanSubtasks = rawSubtasks.filter((s: any) => s.id !== 'meta-cost');
+
+            return {
+              id: t.id,
+              title: t.title,
+              description: t.description || '',
+              status: t.status as TaskStatus,
+              priority: t.priority as any,
+              assignedTo: t.assigned_to || '',
+              category: t.category as any,
+              startDate: t.start_date || (metaCost ? metaCost.startDate : '') || '',
+              dueDate: t.due_date || '',
+              estimatedCost: t.estimated_cost !== undefined && t.estimated_cost !== null
+                ? Number(t.estimated_cost)
+                : metaCost?.estimated !== undefined
+                ? Number(metaCost.estimated)
+                : undefined,
+              actualCost: t.actual_cost !== undefined && t.actual_cost !== null
+                ? Number(t.actual_cost)
+                : metaCost?.actual !== undefined
+                ? Number(metaCost.actual)
+                : undefined,
+              isBlocked: t.is_blocked !== undefined && t.is_blocked !== null
+                ? !!t.is_blocked
+                : !!metaCost?.isBlocked,
+              blockerReason: t.blocker_reason || metaCost?.blockerReason || '',
+              subtasks: cleanSubtasks,
+              createdAt: t.created_at,
+            };
+          })
+        );
+      }
+
+      // Cargar Bitácora
+      const { data: dbLogbook } = await supabase.from('logbook').select('*').order('date', { ascending: false });
+      if (dbLogbook) {
+        setLogbook(
+          dbLogbook.map((l) => ({
+            id: l.id,
+            title: l.title,
+            content: l.content,
+            category: l.category as any,
+            authorId: l.author_id || '',
+            authorName: l.author_name,
+            date: l.date,
+          }))
+        );
+      }
+
+      // Cargar Hitos
+      const { data: dbMilestones } = await supabase.from('milestones').select('*').order('deadline', { ascending: true });
+      if (dbMilestones && dbMilestones.length > 0) {
+        setMilestones(
+          dbMilestones.map((m) => ({
+            id: m.id,
+            title: m.title,
+            phase: m.phase,
+            deadline: m.deadline,
+            status: m.status as any,
+            progress: m.progress,
+          }))
+        );
+      } else {
+        setMilestones([]);
+      }
+    } catch (err) {
+      console.error('Error al conectar con Supabase:', err);
+    } finally {
+      setIsLoaded(true);
+    }
   }, []);
 
-  // 1.1 Sistema de Presencia en Línea en Tiempo Real (Supabase Presence)
+  useEffect(() => {
+    document.title = 'MIGALIA';
+    loadDataFromSupabase();
+  }, [loadDataFromSupabase]);
+
+  // 1.1 Sistema de Presencia y Sincronización Automática en Tiempo Real
   useEffect(() => {
     if (!currentPartner) return;
 
-    // Crear canal de presencia en tiempo real para Migalia
-    const channel = supabase.channel('migalia_presence', {
+    // Canal de presencia y broadcast en vivo
+    const presenceChannel = supabase.channel('migalia_presence', {
       config: {
         presence: {
           key: currentPartner.id,
@@ -314,9 +347,9 @@ export default function Home() {
       },
     });
 
-    channel
+    presenceChannel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
+        const state = presenceChannel.presenceState();
         const onlineIdentifiers = new Set<string>();
 
         Object.values(state).forEach((presences: any) => {
@@ -328,7 +361,6 @@ export default function Home() {
           }
         });
 
-        // Actualizar socios con su estado isOnline
         setPartners((prev) =>
           prev.map((p) => {
             const isMe =
@@ -346,7 +378,7 @@ export default function Home() {
           })
         );
       })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      .on('presence', { event: 'join' }, ({ key }) => {
         const joinedId = key.toLowerCase();
         setPartners((prev) =>
           prev.map((p) => (p.id.toLowerCase() === joinedId ? { ...p, isOnline: true } : p))
@@ -382,14 +414,37 @@ export default function Home() {
             } catch (e) {}
             return updated;
           });
-          // Sonido de Pop elegante y aumento de contador de no leídos
+          // Sonido suave de notificación
           soundManager.playChatPop();
           setUnreadChatCount((prev) => prev + 1);
+
+          // Buscar avatar del socio emisor
+          const sender = partners.find((p) => p.id === payload.senderId);
+
+          // Mostrar notificación flotante / toast en pantalla
+          setChatNotification({
+            message: payload,
+            senderAvatar: sender?.avatar,
+          });
+
+          // Notificación del sistema del navegador si tiene permiso
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`Mensaje de ${payload.senderName}`, {
+                body: payload.content,
+                icon: '/icon.png',
+              });
+            } catch (e) {}
+          }
         }
+      })
+      .on('broadcast', { event: 'data_changed' }, () => {
+        // Recargar datos automáticamente cuando otro socio realice cualquier cambio
+        loadDataFromSupabase();
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await channel.track({
+          await presenceChannel.track({
             partnerId: currentPartner.id,
             email: currentPartner.email,
             partnerName: currentPartner.name,
@@ -398,11 +453,37 @@ export default function Home() {
         }
       });
 
+    // Canal adicional para escuchar cambios directos en la Base de Datos Postgres (Realtime CDC)
+    const dbChangesChannel = supabase
+      .channel('migalia_db_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        loadDataFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'logbook' }, () => {
+        loadDataFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'milestones' }, () => {
+        loadDataFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_settings' }, () => {
+        loadDataFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        loadDataFromSupabase();
+      })
+      .subscribe();
+
+    // Solicitar permiso para notificaciones nativas del navegador
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
     return () => {
-      channel.untrack();
-      supabase.removeChannel(channel);
+      presenceChannel.untrack();
+      supabase.removeChannel(presenceChannel);
+      supabase.removeChannel(dbChangesChannel);
     };
-  }, [currentPartner]);
+  }, [currentPartner, partners, loadDataFromSupabase]);
 
   // Manejador de Login
   const handleLogin = (partner: Partner) => {
@@ -433,6 +514,11 @@ export default function Home() {
       prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
     );
     await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'tasks' },
+    });
   };
 
   const handleSaveTask = async (taskData: Task) => {
@@ -467,11 +553,21 @@ export default function Home() {
       due_date: taskData.dueDate || null,
       subtasks: subtasksWithMeta,
     });
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'tasks' },
+    });
   };
 
   const handleDeleteTask = async (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     await supabase.from('tasks').delete().eq('id', taskId);
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'tasks' },
+    });
   };
 
   // 3. Operaciones de Bitácora en Supabase
@@ -492,6 +588,11 @@ export default function Home() {
       author_name: entry.authorName,
       date: entry.date,
     });
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'logbook' },
+    });
   };
 
   // 4. Operaciones de Hitos en Supabase
@@ -511,6 +612,11 @@ export default function Home() {
       status: milestone.status,
       progress: milestone.progress,
     });
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'milestones' },
+    });
   };
 
   const handleUpdateMilestone = async (updated: Milestone) => {
@@ -523,11 +629,21 @@ export default function Home() {
       status: updated.status,
       progress: updated.progress,
     }).eq('id', updated.id);
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'milestones' },
+    });
   };
 
   const handleDeleteMilestone = async (id: string) => {
     setMilestones((prev) => prev.filter((m) => m.id !== id));
     await supabase.from('milestones').delete().eq('id', id);
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'milestones' },
+    });
   };
 
   // 5. Configuración de Socios y Presupuesto en Supabase
@@ -543,6 +659,11 @@ export default function Home() {
         avatar: p.avatar,
       }))
     );
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'profiles' },
+    });
   };
 
   const handleSaveBudget = async (newBudget: number) => {
@@ -551,117 +672,171 @@ export default function Home() {
       id: 'main',
       budget: newBudget,
     });
+    supabase.channel('migalia_presence').send({
+      type: 'broadcast',
+      event: 'data_changed',
+      payload: { entity: 'project_settings' },
+    });
   };
 
   // 6. Operaciones de Recetas & Fichas Técnicas
-  useEffect(() => {
+  const handleSaveRecipe = async (recipeData: Recipe) => {
+    const exists = recipes.some((r) => r.id === recipeData.id);
+    const updated = exists
+      ? recipes.map((r) => (r.id === recipeData.id ? recipeData : r))
+      : [recipeData, ...recipes];
+    setRecipes(updated);
     try {
-      const local = localStorage.getItem('migalia_recipes');
-      if (local !== null) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) {
-          setRecipes(parsed);
-        }
-      }
+      localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      await supabase.from('tasks').upsert({
+        id: 'meta-recipes-catalog',
+        title: 'Catálogo de Recetas y Fichas Técnicas',
+        description: 'Recetas sincronizadas en la nube',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-2',
+        category: 'Operaciones',
+        subtasks: updated,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'recipes' },
+      });
     } catch (e) {
-      console.error('Error al cargar recetas locales:', e);
+      console.error('Error al guardar receta:', e);
     }
-  }, []);
-
-  const handleSaveRecipe = (recipeData: Recipe) => {
-    setRecipes((prev) => {
-      const exists = prev.some((r) => r.id === recipeData.id);
-      const updated = exists
-        ? prev.map((r) => (r.id === recipeData.id ? recipeData : r))
-        : [recipeData, ...prev];
-      try {
-        localStorage.setItem('migalia_recipes', JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error al guardar receta:', e);
-      }
-      return updated;
-    });
   };
 
-  const handleDeleteRecipe = (recipeId: string) => {
-    setRecipes((prev) => {
-      const updated = prev.filter((r) => r.id !== recipeId);
-      try {
-        localStorage.setItem('migalia_recipes', JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error al eliminar receta:', e);
-      }
-      return updated;
-    });
+  const handleDeleteRecipe = async (recipeId: string) => {
+    const updated = recipes.filter((r) => r.id !== recipeId);
+    setRecipes(updated);
+    try {
+      localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      await supabase.from('tasks').upsert({
+        id: 'meta-recipes-catalog',
+        title: 'Catálogo de Recetas y Fichas Técnicas',
+        description: 'Recetas sincronizadas en la nube',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-2',
+        category: 'Operaciones',
+        subtasks: updated,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'recipes' },
+      });
+    } catch (e) {
+      console.error('Error al eliminar receta:', e);
+    }
   };
 
   // 7. Operaciones de Documentos & Archivos (Docs, Sheets, Google Embed)
-  useEffect(() => {
+  const handleSaveDocument = async (docData: MigaliaDocument) => {
+    const exists = documents.some((d) => d.id === docData.id);
+    const updated = exists
+      ? documents.map((d) => (d.id === docData.id ? docData : d))
+      : [docData, ...documents];
+    setDocuments(updated);
     try {
-      const localDocs = localStorage.getItem('migalia_documents');
-      if (localDocs !== null) {
-        const parsed = JSON.parse(localDocs);
-        if (Array.isArray(parsed)) {
-          setDocuments(parsed);
-        }
-      }
+      localStorage.setItem('migalia_documents', JSON.stringify(updated));
+      await supabase.from('tasks').upsert({
+        id: 'meta-docs-vault',
+        title: 'Bóveda de Documentos Migalia',
+        description: 'Documentación y enlaces sincronizados en la nube',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Legal',
+        subtasks: updated,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'documents' },
+      });
     } catch (e) {
-      console.error('Error al cargar documentos locales:', e);
+      console.error('Error al guardar documento:', e);
     }
-  }, []);
-
-  const handleSaveDocument = (docData: MigaliaDocument) => {
-    setDocuments((prev) => {
-      const exists = prev.some((d) => d.id === docData.id);
-      const updated = exists
-        ? prev.map((d) => (d.id === docData.id ? docData : d))
-        : [docData, ...prev];
-      try {
-        localStorage.setItem('migalia_documents', JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error al guardar documento:', e);
-      }
-      return updated;
-    });
   };
 
-  const handleDeleteDocument = (docId: string) => {
-    setDocuments((prev) => {
-      const updated = prev.filter((d) => d.id !== docId);
-      try {
-        localStorage.setItem('migalia_documents', JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error al eliminar documento:', e);
-      }
-      return updated;
-    });
+  const handleDeleteDocument = async (docId: string) => {
+    const updated = documents.filter((d) => d.id !== docId);
+    setDocuments(updated);
+    try {
+      localStorage.setItem('migalia_documents', JSON.stringify(updated));
+      await supabase.from('tasks').upsert({
+        id: 'meta-docs-vault',
+        title: 'Bóveda de Documentos Migalia',
+        description: 'Documentación y enlaces sincronizados en la nube',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Legal',
+        subtasks: updated,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'documents' },
+      });
+    } catch (e) {
+      console.error('Error al eliminar documento:', e);
+    }
   };
 
   // 8. Operaciones del Calendario Interno de Sesiones
-  const handleAddMeeting = (meetingData: Omit<ScheduledMeeting, 'id' | 'createdAt'>) => {
+  const handleAddMeeting = async (meetingData: Omit<ScheduledMeeting, 'id' | 'createdAt'>) => {
     const newMeeting: ScheduledMeeting = {
       ...meetingData,
       id: 'meet-' + Date.now(),
       createdAt: new Date().toISOString().split('T')[0],
     };
-
-    setMeetings((prev) => {
-      const updated = [newMeeting, ...prev];
-      try {
-        localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
+    const updated = [newMeeting, ...meetings];
+    setMeetings(updated);
+    try {
+      localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(updated));
+      await supabase.from('tasks').upsert({
+        id: 'meta-meetings-calendar',
+        title: 'Calendario de Sesiones de Socios',
+        description: 'Reuniones programadas sincronizadas en la nube',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'General',
+        subtasks: updated,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'meetings' },
+      });
+    } catch (e) {}
   };
 
-  const handleDeleteMeeting = (meetingId: string) => {
-    setMeetings((prev) => {
-      const updated = prev.filter((m) => m.id !== meetingId);
-      try {
-        localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
+  const handleDeleteMeeting = async (meetingId: string) => {
+    const updated = meetings.filter((m) => m.id !== meetingId);
+    setMeetings(updated);
+    try {
+      localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(updated));
+      await supabase.from('tasks').upsert({
+        id: 'meta-meetings-calendar',
+        title: 'Calendario de Sesiones de Socios',
+        description: 'Reuniones programadas sincronizadas en la nube',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'General',
+        subtasks: updated,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'meetings' },
+      });
+    } catch (e) {}
   };
 
   // Vaciar y empezar desde cero en Supabase
@@ -1117,6 +1292,19 @@ export default function Home() {
           }
         }}
       />
+
+      {/* Toast de Notificación de Chat Entrante */}
+      {chatNotification && !isChatOpen && (
+        <ChatToast
+          notification={chatNotification}
+          onOpenChat={() => {
+            setIsChatOpen(true);
+            setUnreadChatCount(0);
+            setChatNotification(null);
+          }}
+          onDismiss={() => setChatNotification(null)}
+        />
+      )}
 
       {/* Toast con Sonido de Llamada Entrante */}
       {incomingCall && !isGlobalMeetingOpen && (
