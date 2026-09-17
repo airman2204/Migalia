@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+:root {
+  /* Warm Minimalist / Japandi - Migalia Palette */
+  --background: #F8F6F0;       /* Tono piedra caliza / chukum */
+  --card-bg: #FFFFFF;          /* Blanco cálido para tarjetas */
+  --card-subtle: #F2EFE9;      /* Superficie secundaria lino */
+  --border: #E6DFD5;           /* Arena suave para bordes */
+  --foreground: #221F1D;       /* Café tostado oscuro / carbón cálido */
+  --foreground-muted: #6E665D; /* Tono tierra suave */
+  
+  /* Acentos de Marca */
+  --brand-gold: #C59B27;       /* Ocre mantequilla tostada / tilde MÍGALIA */
+  --brand-oak: #8C6239;        /* Encino / madera cálida */
+  --brand-dark: #1E1B18;       /* Botones principales y contrastes */
+
+  /* Semáforo cálido */
+  --badge-urgent: #C84B31;     /* Terracota */
+  --badge-urgent-bg: #FDF0ED;
+  --badge-high: #D97706;       /* Ámbar */
+  --badge-high-bg: #FEF3C7;
+  --badge-progress: #B45309;   /* Miel */
+  --badge-progress-bg: #FFFBEB;
+  --badge-done: #4A6B53;       /* Salvia / oliva */
+  --badge-done-bg: #EDF3EE;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Scrollbars minimalistas */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #DDD5C7;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C4BAAA;
+}
+
+/* Reglas de Impresión y Exportación a PDF */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 10mm;
+  }
+
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ocultar toda la interfaz de la app durante la impresión */
+  header,
+  aside,
+  nav,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Asegurar que el contenedor de la receta ocupe toda la página */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  .print-only-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #FFFFFF !important;
+  }
+}
