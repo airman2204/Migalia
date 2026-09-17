@@ -21,11 +21,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   budget,
   onSaveBudget,
 }) => {
-  if (!isOpen) return null;
-
   const [localPartners, setLocalPartners] = useState<Partner[]>(partners);
   const [localBudget, setLocalBudget] = useState<number>(budget);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setLocalPartners(partners);
+      setLocalBudget(budget);
+      setSavedSuccess(false);
+    }
+  }, [isOpen, partners, budget]);
+
+  if (!isOpen) return null;
 
   const handlePartnerChange = (index: number, field: keyof Partner, value: string) => {
     const updated = [...localPartners];

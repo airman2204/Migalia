@@ -34,8 +34,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   onSaveTask,
   onDeleteTask,
 }) => {
-  if (!isOpen) return null;
-
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [status, setStatus] = useState<TaskStatus>(task?.status || 'todo');
@@ -54,6 +52,27 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [blockerReason, setBlockerReason] = useState<string>(task?.blockerReason || '');
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setTitle(task?.title || '');
+      setDescription(task?.description || '');
+      setStatus(task?.status || 'todo');
+      setPriority(task?.priority || 'medium');
+      setAssignedTo(task?.assignedTo || partners[0]?.id || '');
+      setCategory(task?.category || 'Obra & Interiorismo');
+      setStartDate(task?.startDate || new Date().toISOString().split('T')[0]);
+      setDueDate(task?.dueDate || new Date().toISOString().split('T')[0]);
+      setEstimatedCost(task?.estimatedCost !== undefined ? String(task.estimatedCost) : '');
+      setActualCost(task?.actualCost !== undefined ? String(task.actualCost) : '');
+      setIsBlocked(task?.isBlocked || false);
+      setBlockerReason(task?.blockerReason || '');
+      setSubtasks(task?.subtasks || []);
+      setNewSubtaskTitle('');
+    }
+  }, [isOpen, task, partners]);
+
+  if (!isOpen) return null;
 
   const handleAddSubtask = () => {
     if (!newSubtaskTitle.trim()) return;
@@ -88,8 +107,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       category,
       startDate: startDate || undefined,
       dueDate,
-      estimatedCost: estimatedCost ? parseFloat(estimatedCost) : undefined,
-      actualCost: actualCost ? parseFloat(actualCost) : undefined,
+      estimatedCost: estimatedCost && !isNaN(parseFloat(estimatedCost)) ? parseFloat(estimatedCost) : undefined,
+      actualCost: actualCost && !isNaN(parseFloat(actualCost)) ? parseFloat(actualCost) : undefined,
       isBlocked,
       blockerReason: isBlocked ? blockerReason : undefined,
       subtasks,

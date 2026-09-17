@@ -48,11 +48,11 @@ export default function CapexBalance({
           <div className="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
             <div
               className="bg-emerald-500 h-full transition-all duration-500"
-              style={{ width: `${Math.min((totalSpent / targetBudget) * 100, 100)}%` }}
+              style={{ width: `${targetBudget > 0 ? Math.min((totalSpent / targetBudget) * 100, 100) : 0}%` }}
             />
           </div>
           <p className="text-xs text-slate-400 mt-1 text-right font-mono">
-            {((totalSpent / targetBudget) * 100).toFixed(1)}% ejecutado
+            {targetBudget > 0 ? ((totalSpent / targetBudget) * 100).toFixed(1) : '0.0'}% ejecutado
           </p>
         </div>
       </div>

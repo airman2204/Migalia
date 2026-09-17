@@ -184,7 +184,7 @@ export const GanttView: React.FC<GanttViewProps> = ({
                           className="absolute -translate-x-1/2 top-0 flex items-center gap-1 bg-[#221F1D] text-[#F8F6F0] text-[10px] px-2 py-0.5 rounded-full font-bold shadow-xs whitespace-nowrap z-10"
                         >
                           <span>📍</span>
-                          <span>{m.deadline.substring(5)}</span>
+                          <span>{m.deadline ? m.deadline.substring(5) : ''}</span>
                         </div>
                       </div>
                     </div>
@@ -251,7 +251,7 @@ export const GanttView: React.FC<GanttViewProps> = ({
                           title={`${task.title} | ${task.dueDate} | ${task.isBlocked ? 'BLOQUEADA: ' + task.blockerReason : task.status}`}
                         >
                           <span className="truncate pr-1">{task.title}</span>
-                          <span className="text-[9px] opacity-90">{task.dueDate.substring(5)}</span>
+                          <span className="text-[9px] opacity-90">{task.dueDate ? task.dueDate.substring(5) : ''}</span>
                         </div>
                       </div>
                     </div>
