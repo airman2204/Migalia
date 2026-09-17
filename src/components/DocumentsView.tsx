@@ -21,6 +21,7 @@ import {
   Pin,
   Check,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface DocumentsViewProps {
@@ -28,6 +29,7 @@ interface DocumentsViewProps {
   currentPartnerName: string;
   onSaveDocument: (doc: MigaliaDocument) => void;
   onDeleteDocument: (docId: string) => void;
+  onSyncDocuments?: (docs: MigaliaDocument[]) => void;
 }
 
 const FOLDERS: DocumentFolder[] = [
@@ -46,10 +48,52 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   currentPartnerName,
   onSaveDocument,
   onDeleteDocument,
+  onSyncDocuments,
 }) => {
   const [activeMainTab, setActiveMainTab] = useState<'all' | 'sheets' | 'docs'>('all');
   const [selectedFolder, setSelectedFolder] = useState<'all' | DocumentFolder>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Estado de sincronización en vivo con Google Drive
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
+  // Sincronización con Google Drive
+  const handleSyncFromDrive = async (silent = false) => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    if (!silent) setSyncStatus('Sincronizando con Drive...');
+    try {
+      const res = await fetch('/api/drive/sync');
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.documents)) {
+        if (onSyncDocuments) {
+          onSyncDocuments(data.documents);
+        }
+        if (!silent) {
+          setSyncStatus(`¡Sincronizado! ${data.documents.length} archivo(s) en Drive.`);
+          setTimeout(() => setSyncStatus(null), 4000);
+        }
+      } else {
+        if (!silent) {
+          setSyncStatus('No se pudo sincronizar');
+          setTimeout(() => setSyncStatus(null), 3500);
+        }
+      }
+    } catch (e) {
+      if (!silent) {
+        setSyncStatus('Error de conexión');
+        setTimeout(() => setSyncStatus(null), 3500);
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Sincronización automática suave al abrir la vista de Documentos
+  React.useEffect(() => {
+    handleSyncFromDrive(true);
+  }, []);
 
   // Modal rápido de creación: solo pide título y categoría
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -304,6 +348,22 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
         {/* Acciones directas */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {syncStatus && (
+            <span className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1.5 rounded-xl animate-in fade-in">
+              {syncStatus}
+            </span>
+          )}
+
+          <button
+            onClick={() => handleSyncFromDrive(false)}
+            disabled={isSyncing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 disabled:opacity-60 rounded-xl text-xs font-semibold transition shadow-xs border border-stone-300/80"
+            title="Sincronizar archivos que subiste directamente a Google Drive"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-stone-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Drive'}</span>
+          </button>
+
           <a
             href={MIGALIA_DRIVE_URL}
             target="_blank"

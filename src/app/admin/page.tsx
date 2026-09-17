@@ -921,6 +921,46 @@ export default function Home() {
     }
   };
 
+  const handleSyncDocuments = async (syncedDocs: MigaliaDocument[]) => {
+    // Mezclar documentos existentes preservando carpetas personalizadas o pines
+    const existingMap = new Map(documents.map((d) => [d.id, d]));
+    syncedDocs.forEach((sd) => {
+      const existing = existingMap.get(sd.id);
+      if (existing) {
+        existingMap.set(sd.id, {
+          ...sd,
+          folder: existing.folder || sd.folder,
+          isPinned: existing.isPinned ?? sd.isPinned,
+        });
+      } else {
+        existingMap.set(sd.id, sd);
+      }
+    });
+
+    const updated = Array.from(existingMap.values());
+    setDocuments(updated);
+    try {
+      localStorage.setItem('migalia_documents', JSON.stringify(updated));
+      await supabase.from('tasks').upsert({
+        id: 'meta-docs-vault',
+        title: 'Bóveda de Documentos Migalia',
+        description: 'Documentación y enlaces sincronizados en la nube',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Legal',
+        subtasks: updated,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'documents' },
+      });
+    } catch (e) {
+      console.error('Error al sincronizar documentos con la nube:', e);
+    }
+  };
+
   const handleDeleteDocument = async (docId: string) => {
     const updated = documents.filter((d) => d.id !== docId);
     setDocuments(updated);
@@ -1186,6 +1226,7 @@ export default function Home() {
               currentPartnerName={currentPartner?.name || 'Mario'}
               onSaveDocument={handleSaveDocument}
               onDeleteDocument={handleDeleteDocument}
+              onSyncDocuments={handleSyncDocuments}
             />
           )}
 
