@@ -108,6 +108,8 @@ export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isChatMinimized, setIsChatMinimized] = useState(false);
   const presenceChannelRef = useRef<any>(null);
+  const chatChannelRef = useRef<any>(null);
+  const isSavingRecipeRef = useRef(false);
   const [isGlobalMeetingOpen, setIsGlobalMeetingOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -293,6 +295,8 @@ export default function Home() {
         }
 
         // Extraer recetas compartidas si existen en la nube y sincronización bidireccional
+        // Skip si estamos en medio de un guardado para evitar race condition que borra la receta
+        if (!isSavingRecipeRef.current) {
         const recipesMeta = dbTasks.find((t) => t.id === 'meta-recipes-catalog');
         const rawDbRecipeList: any[] = (recipesMeta && Array.isArray(recipesMeta.subtasks)) ? recipesMeta.subtasks : [];
 
@@ -359,6 +363,7 @@ export default function Home() {
 
           return merged;
         });
+        } // end if (!isSavingRecipeRef.current)
 
         // Extraer documentos compartidos si existen en la nube
         const docsMeta = dbTasks.find((t) => t.id === 'meta-docs-vault');
@@ -465,6 +470,30 @@ export default function Home() {
   // 1.1 Sistema de Presencia y Sincronización Automática en Tiempo Real
   useEffect(() => {
     if (!currentPartner) return;
+
+    // Canal dedicado para mensajes de chat (independiente del canal de presencia)
+    const chatChannel = supabase.channel('migalia_chat_v2');
+    chatChannelRef.current = chatChannel;
+    chatChannel
+      .on('broadcast', { event: 'new_chat_message' }, ({ payload }) => {
+        if (payload?.senderId !== currentPartner.id) {
+          setChatMessages((prev) => {
+            const exists = prev.some((m) => m.id === payload.id);
+            if (exists) return prev;
+            const updated = [...prev, payload];
+            try { localStorage.setItem('migalia_partners_chat', JSON.stringify(updated)); } catch (e) {}
+            return updated;
+          });
+          soundManager.playChatPop();
+          setUnreadChatCount((prev) => prev + 1);
+          const sender = partners.find((p) => p.id === payload.senderId);
+          setChatNotification({ message: payload, senderAvatar: sender?.avatar });
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try { new Notification(`Mensaje de ${payload.senderName}`, { body: payload.content, icon: '/icon.png' }); } catch (e) {}
+          }
+        }
+      })
+      .subscribe();
 
     // Canal de presencia y broadcast en vivo
     const presenceChannel = supabase.channel('migalia_presence', {
@@ -687,6 +716,8 @@ export default function Home() {
       presenceChannel.untrack();
       supabase.removeChannel(presenceChannel);
       supabase.removeChannel(dbChangesChannel);
+      supabase.removeChannel(chatChannel);
+      chatChannelRef.current = null;
     };
   }, [currentPartner?.id, loadDataFromSupabase]);
 
@@ -907,7 +938,9 @@ export default function Home() {
 
   // 6. Operaciones de Recetas & Fichas Técnicas
   const handleSaveRecipe = async (recipeData: Recipe) => {
-    // 1. Actualización optimista local
+    isSavingRecipeRef.current = true;
+
+    // 1. Actualización optimista local inmediata
     setRecipes((prev) => {
       const exists = prev.some((r) => r.id === recipeData.id);
       const updated = exists
@@ -927,18 +960,25 @@ export default function Home() {
         .eq('id', 'meta-recipes-catalog')
         .maybeSingle();
 
-      const remoteRecipes: Recipe[] = (currentMeta && Array.isArray(currentMeta.subtasks)) ? currentMeta.subtasks : [];
+      const remoteRecipes: Recipe[] = (currentMeta && Array.isArray(currentMeta.subtasks))
+        ? currentMeta.subtasks.map((r: any) => ({
+            ...r,
+            ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
+            miseEnPlace: Array.isArray(r.miseEnPlace) ? r.miseEnPlace : [],
+            preparation: Array.isArray(r.preparation) ? r.preparation : [],
+          }))
+        : [];
+
       const recipeMap = new Map<string, Recipe>();
-      
-      // Añadir remotas
+      // Añadir remotas primero
       remoteRecipes.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
-      // Añadir la actual (creación o edición)
+      // La receta nueva/editada siempre tiene prioridad
       recipeMap.set(recipeData.id, recipeData);
 
       const finalRecipes = Array.from(recipeMap.values());
 
       // 3. Persistir en Supabase
-      await supabase.from('tasks').upsert({
+      const { error } = await supabase.from('tasks').upsert({
         id: 'meta-recipes-catalog',
         title: 'Catálogo de Recetas y Fichas Técnicas',
         description: 'Recetas sincronizadas en la nube',
@@ -949,22 +989,24 @@ export default function Home() {
         subtasks: finalRecipes,
       });
 
-      // 4. Actualizar estado y LocalStorage definitivos
-      setRecipes(finalRecipes);
-      try {
-        localStorage.setItem('migalia_recipes', JSON.stringify(finalRecipes));
-      } catch (e) {}
+      if (!error) {
+        // 4. Actualizar estado definitivo solo si Supabase confirmó
+        setRecipes(finalRecipes);
+        try {
+          localStorage.setItem('migalia_recipes', JSON.stringify(finalRecipes));
+        } catch (e) {}
 
-      // 5. Broadcast en tiempo real para el otro socio
-      supabase.channel('migalia_presence').send({
-        type: 'broadcast',
-        event: 'data_changed',
-        payload: { entity: 'recipes' },
-      });
+        // 5. Notificar al otro socio
+        sendBroadcast('data_changed', { entity: 'recipes' });
+      }
     } catch (e) {
       console.error('Error al guardar receta en Supabase:', e);
+    } finally {
+      // Liberar el lock 2 segundos después para permitir que Supabase propague el cambio
+      setTimeout(() => { isSavingRecipeRef.current = false; }, 2000);
     }
   };
+
 
   const handleDeleteRecipe = async (recipeId: string) => {
     const updated = recipes.filter((r) => r.id !== recipeId);
@@ -1525,8 +1567,16 @@ export default function Home() {
             return updated;
           });
 
-          // Transmitir mensaje de inmediato en tiempo real por Supabase Broadcast
-          sendBroadcast('new_chat_message', newMsg);
+          // Transmitir por el canal dedicado de chat (más confiable que el canal de presencia)
+          try {
+            if (chatChannelRef.current) {
+              chatChannelRef.current.send({
+                type: 'broadcast',
+                event: 'new_chat_message',
+                payload: newMsg,
+              });
+            }
+          } catch (e) {}
 
           // Persistir en Supabase de forma segura leyendo los mensajes más recientes para no sobrescribir mensajes concurrentes
           try {
