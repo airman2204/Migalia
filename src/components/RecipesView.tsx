@@ -238,7 +238,7 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
                     <div className="flex justify-between py-1">
                       <span>Insumos & Pasos:</span>
                       <span className="font-medium text-[#221F1D]">
-                        {ingredientsCount} insumos {subrecipesCount > 0 ? ` (${subrecipesCount} subrecetas)` : ''} · {recipe.preparation.length} pasos
+                        {ingredientsCount} insumos {subrecipesCount > 0 ? ` (${subrecipesCount} subrecetas)` : ''} · {(recipe.preparation || []).length} pasos
                       </span>
                     </div>
                   </div>

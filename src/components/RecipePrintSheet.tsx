@@ -127,7 +127,7 @@ export const RecipePrintSheet: React.FC<RecipePrintSheetProps> = ({ recipe }) =>
             MISE EN PLACE:
           </div>
           <ol className="list-decimal list-inside space-y-0.5 text-[11px] pl-1">
-            {recipe.miseEnPlace.map((step, sIdx) => (
+            {(recipe.miseEnPlace || []).map((step, sIdx) => (
               <li key={sIdx} className="leading-snug">
                 <span className="font-normal">{step}</span>
               </li>
@@ -141,7 +141,7 @@ export const RecipePrintSheet: React.FC<RecipePrintSheetProps> = ({ recipe }) =>
             PREPARACIÓN:
           </div>
           <ol className="list-decimal list-inside space-y-1 text-[11px] pl-1">
-            {recipe.preparation.map((step, pIdx) => (
+            {(recipe.preparation || []).map((step, pIdx) => (
               <li key={pIdx} className="leading-relaxed">
                 <span className="font-normal">{step}</span>
               </li>

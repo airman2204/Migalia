@@ -113,7 +113,7 @@ export default function PrintableRecipe({ recipe }: PrintableRecipeProps) {
           </tr>
         </thead>
         <tbody>
-          {recipe.ingredients.map((ing, index) => (
+          {(recipe.ingredients || []).map((ing, index) => (
             <tr key={index} className="border-b border-black">
               <td className="border border-black p-1.5 font-semibold uppercase">
                 {ing.name}
@@ -151,7 +151,7 @@ export default function PrintableRecipe({ recipe }: PrintableRecipeProps) {
           MISE EN PLACE:
         </div>
         <ol className="list-decimal list-inside space-y-0.5 text-xs">
-          {recipe.miseEnPlace.map((step, i) => (
+          {(recipe.miseEnPlace || []).map((step, i) => (
             <li key={i} className="pl-1">
               {step}
             </li>
@@ -165,7 +165,7 @@ export default function PrintableRecipe({ recipe }: PrintableRecipeProps) {
           PREPARACIÓN
         </div>
         <ol className="list-decimal list-inside space-y-0.5 text-xs">
-          {recipe.preparation.map((step, i) => (
+          {(recipe.preparation || []).map((step, i) => (
             <li key={i} className="pl-1">
               {step}
             </li>
