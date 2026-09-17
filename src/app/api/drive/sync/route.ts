@@ -50,18 +50,29 @@ function determineFolder(name: string): DocumentFolder {
   return 'General';
 }
 
-function determineDocType(mimeType: string): DocumentType {
+function determineDocType(mimeType: string, fileName?: string): DocumentType {
+  const lowerName = (fileName || '').toLowerCase();
+  if (
+    mimeType === 'application/pdf' ||
+    lowerName.endsWith('.pdf')
+  ) {
+    return 'pdf';
+  }
   if (
     mimeType === 'application/vnd.google-apps.spreadsheet' ||
     mimeType.includes('excel') ||
-    mimeType.includes('spreadsheet')
+    mimeType.includes('spreadsheet') ||
+    lowerName.endsWith('.xlsx') ||
+    lowerName.endsWith('.csv')
   ) {
     return 'google_sheet';
   }
   if (
     mimeType === 'application/vnd.google-apps.document' ||
     mimeType.includes('word') ||
-    mimeType.includes('document')
+    mimeType.includes('document') ||
+    lowerName.endsWith('.docx') ||
+    lowerName.endsWith('.doc')
   ) {
     return 'google_doc';
   }
@@ -105,7 +116,7 @@ export async function GET() {
     const driveFiles = response.data.files || [];
 
     const documents: MigaliaDocument[] = driveFiles.map((file) => {
-      const docType = determineDocType(file.mimeType || '');
+      const docType = determineDocType(file.mimeType || '', file.name || '');
       const folder = determineFolder(file.name || '');
       const owner = file.owners?.[0];
 

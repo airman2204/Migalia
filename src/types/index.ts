@@ -172,7 +172,7 @@ export interface Recipe {
 /**
  * Tipo de documento admitido en el gestor de expedientes.
  */
-export type DocumentType = 'google_sheet' | 'google_doc' | 'google_embed' | 'doc' | 'sheet';
+export type DocumentType = 'google_sheet' | 'google_doc' | 'google_embed' | 'doc' | 'sheet' | 'pdf';
 
 /**
  * Carpetas de clasificación de documentos del negocio.

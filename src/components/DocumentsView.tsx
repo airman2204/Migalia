@@ -50,9 +50,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   onDeleteDocument,
   onSyncDocuments,
 }) => {
-  const [activeMainTab, setActiveMainTab] = useState<'all' | 'sheets' | 'docs'>('all');
+  const [activeMainTab, setActiveMainTab] = useState<'all' | 'sheets' | 'docs' | 'pdfs'>('all');
   const [selectedFolder, setSelectedFolder] = useState<'all' | DocumentFolder>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Helpers para identificar tipo de documento
+  const isPdfDoc = (d: MigaliaDocument) => d.type === 'pdf' || (d.title || '').toLowerCase().endsWith('.pdf');
+  const isSheetDoc = (d: MigaliaDocument) => d.type === 'google_sheet' || d.type === 'sheet';
 
   // Estado de sincronización en segundo plano con Google Drive
   const [isSyncing, setIsSyncing] = useState(false);
@@ -112,9 +116,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     const list = documents.filter((d) => {
       // Filtro por pestaña de tipo
       if (activeMainTab === 'sheets') {
-        if (d.type !== 'google_sheet' && d.type !== 'sheet') return false;
+        if (!isSheetDoc(d)) return false;
       } else if (activeMainTab === 'docs') {
-        if (d.type !== 'google_doc' && d.type !== 'doc') return false;
+        if (isSheetDoc(d) || isPdfDoc(d)) return false;
+      } else if (activeMainTab === 'pdfs') {
+        if (!isPdfDoc(d)) return false;
       }
 
       // Filtro por carpeta
@@ -138,11 +144,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
   // Contadores para pestañas
   const sheetsCount = useMemo(
-    () => documents.filter((d) => d.type === 'google_sheet' || d.type === 'sheet').length,
+    () => documents.filter((d) => isSheetDoc(d)).length,
     [documents]
   );
   const docsCount = useMemo(
-    () => documents.filter((d) => d.type === 'google_doc' || d.type === 'doc').length,
+    () => documents.filter((d) => !isSheetDoc(d) && !isPdfDoc(d)).length,
+    [documents]
+  );
+  const pdfsCount = useMemo(
+    () => documents.filter((d) => isPdfDoc(d)).length,
     [documents]
   );
 
@@ -343,6 +353,27 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               {docsCount}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveMainTab('pdfs')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeMainTab === 'pdfs'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-stone-600 hover:bg-rose-50 hover:text-rose-800'
+            }`}
+          >
+            <span className="w-4 h-4 flex items-center justify-center font-bold text-[9px] bg-rose-100 text-rose-700 rounded">
+              PDF
+            </span>
+            <span>Archivos PDF</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                activeMainTab === 'pdfs' ? 'bg-rose-900 text-rose-100' : 'bg-stone-100 text-stone-600'
+              }`}
+            >
+              {pdfsCount}
+            </span>
+          </button>
         </div>
 
         {/* Acciones directas */}
@@ -460,7 +491,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredDocuments.map((doc) => {
-            const isSheet = doc.type === 'google_sheet' || doc.type === 'sheet';
+            const isSheet = isSheetDoc(doc);
+            const isPdf = isPdfDoc(doc);
             const rawUrl = doc.googleUrl || (doc.content?.startsWith('http') ? doc.content : '');
             const hasValidLink = Boolean(rawUrl && rawUrl.startsWith('http'));
 
@@ -471,6 +503,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   doc.isPinned
                     ? isSheet
                       ? 'border-emerald-400/80 shadow-xs bg-gradient-to-b from-emerald-50/20 to-white'
+                      : isPdf
+                      ? 'border-rose-400/80 shadow-xs bg-gradient-to-b from-rose-50/20 to-white'
                       : 'border-blue-400/80 shadow-xs bg-gradient-to-b from-blue-50/20 to-white'
                     : 'border-stone-200 hover:shadow-md hover:border-stone-300'
                 } p-5`}
@@ -480,21 +514,33 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2.5">
                       <span
-                        className={`p-2.5 rounded-xl border group-hover:scale-105 transition ${
+                        className={`p-2.5 rounded-xl border group-hover:scale-105 transition flex items-center justify-center ${
                           isSheet
                             ? 'bg-emerald-50 border-emerald-100 text-[#0F9D58]'
+                            : isPdf
+                            ? 'bg-rose-50 border-rose-200 text-rose-600'
                             : 'bg-blue-50 border-blue-100 text-[#4285F4]'
                         }`}
                       >
-                        {isSheet ? <FileSpreadsheet className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                        {isSheet ? (
+                          <FileSpreadsheet className="w-5 h-5" />
+                        ) : isPdf ? (
+                          <div className="flex flex-col items-center justify-center w-5 h-5">
+                            <span className="text-[10px] font-black tracking-tighter leading-none bg-rose-600 text-white px-1 py-0.5 rounded shadow-2xs">
+                              PDF
+                            </span>
+                          </div>
+                        ) : (
+                          <FileText className="w-5 h-5" />
+                        )}
                       </span>
                       <div>
                         <span
                           className={`text-[10px] font-bold uppercase tracking-wider block ${
-                            isSheet ? 'text-[#0F9D58]' : 'text-[#4285F4]'
+                            isSheet ? 'text-[#0F9D58]' : isPdf ? 'text-rose-600' : 'text-[#4285F4]'
                           }`}
                         >
-                          {isSheet ? 'Google Sheets' : 'Google Docs'}
+                          {isSheet ? 'Google Sheets' : isPdf ? 'Documento PDF' : 'Google Docs'}
                         </span>
                         <span className="text-[10px] text-stone-400 font-medium">
                           {hasValidLink ? 'Enlace Directo Activo' : 'Enlace pendiente'}
