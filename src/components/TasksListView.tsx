@@ -28,8 +28,8 @@ export const TasksListView: React.FC<TasksListViewProps> = ({
 
   const filteredTasks = tasks.filter((t) => {
     const matchesSearch =
-      t.title.toLowerCase().includes(search.toLowerCase()) ||
-      t.description.toLowerCase().includes(search.toLowerCase());
+      (t.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.description || '').toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || t.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });

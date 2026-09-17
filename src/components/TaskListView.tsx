@@ -14,7 +14,7 @@ export default function TaskListView({ tasks: initialTasks, onToggleSubtask }: T
   const [selectedAssignee, setSelectedAssignee] = useState<string>('Todos')
 
   const filteredTasks = initialTasks.filter((t) => {
-    const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) || t.category.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (t.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (t.category || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesAssignee = selectedAssignee === 'Todos' || t.assignee === selectedAssignee
     return matchesSearch && matchesAssignee
   })

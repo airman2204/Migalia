@@ -61,9 +61,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     // 1. Buscar en Tareas
     tasks.forEach((t) => {
       if (
-        t.title.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q)
+        (t.title || '').toLowerCase().includes(q) ||
+        (t.description || '').toLowerCase().includes(q) ||
+        (t.category || '').toLowerCase().includes(q)
       ) {
         found.push({
           id: t.id,
@@ -77,12 +77,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     // 2. Buscar en Recetas e Ingredientes
     recipes.forEach((r) => {
-      const matchIngredients = r.ingredients?.some((ing) => ing.name.toLowerCase().includes(q));
+      const matchIngredients = r.ingredients?.some((ing) => (ing.name || '').toLowerCase().includes(q));
       const categoryStr = r.category || 'Receta';
       const costTotal = r.ingredients?.reduce((acc, i) => acc + (i.totalCost || 0), 0) || 0;
 
       if (
-        r.title.toLowerCase().includes(q) ||
+        (r.title || '').toLowerCase().includes(q) ||
         categoryStr.toLowerCase().includes(q) ||
         matchIngredients
       ) {
@@ -98,7 +98,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     // 3. Buscar en Bitácora & Minutas
     logbook.forEach((l) => {
-      if (l.title.toLowerCase().includes(q) || l.content.toLowerCase().includes(q)) {
+      if ((l.title || '').toLowerCase().includes(q) || (l.content || '').toLowerCase().includes(q)) {
         found.push({
           id: l.id,
           title: l.title,

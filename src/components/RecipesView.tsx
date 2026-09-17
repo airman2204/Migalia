@@ -27,8 +27,8 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
 
   const filteredRecipes = recipes.filter((r) => {
     const matchesSearch =
-      r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.ingredients.some((i) => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      (r.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.ingredients || []).some((i) => (i.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = selectedCategory === 'all' || (r.category || 'General') === selectedCategory;
     return matchesSearch && matchesCategory;
   });
