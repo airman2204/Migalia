@@ -160,8 +160,31 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Navegación y Filtros
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  // Navegación y Filtros (Persistente entre recargas F5)
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const hash = window.location.hash.replace('#', '') as ActiveTab;
+        const validTabs: ActiveTab[] = ['dashboard', 'tasks', 'kanban', 'recipes', 'documents', 'logbook', 'milestones', 'calendar', 'calls', 'miga_ai'];
+        if (hash && validTabs.includes(hash)) return hash;
+
+        const savedTab = localStorage.getItem('migalia_active_tab') as ActiveTab;
+        if (savedTab && validTabs.includes(savedTab)) return savedTab;
+      } catch (e) {}
+    }
+    return 'dashboard';
+  });
+
+  const handleTabChange = useCallback((newTab: ActiveTab) => {
+    setActiveTab(newTab);
+    try {
+      localStorage.setItem('migalia_active_tab', newTab);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', `#${newTab}`);
+      }
+    } catch (e) {}
+  }, []);
+
   const [selectedPartnerFilter, setSelectedPartnerFilter] = useState<'all' | string>('all');
 
   // 1. Cargar datos desde Supabase en la nube
@@ -923,7 +946,7 @@ export default function Home() {
         <div className="print:hidden shrink-0 md:sticky md:top-[61px] md:h-[calc(100vh-61px)] z-30">
           <Sidebar
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             counts={counts}
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
@@ -951,7 +974,7 @@ export default function Home() {
                   setSelectedTask(task);
                   setIsModalOpen(true);
                 }}
-                onGoToTab={setActiveTab}
+                onGoToTab={handleTabChange}
               />
             </div>
           )}
@@ -1293,7 +1316,7 @@ export default function Home() {
         logbook={logbook}
         documents={documents}
         onNavigate={(tab, targetId) => {
-          setActiveTab(tab);
+          handleTabChange(tab);
           if (targetId && tab === 'tasks') {
             const found = tasks.find((t) => t.id === targetId);
             if (found) {
