@@ -54,15 +54,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [selectedFolder, setSelectedFolder] = useState<'all' | DocumentFolder>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Estado de sincronización en vivo con Google Drive
+  // Estado de sincronización en segundo plano con Google Drive
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
-  // Sincronización con Google Drive
-  const handleSyncFromDrive = async (silent = false) => {
+  // Sincronización automática silenciosa con Google Drive
+  const handleSyncFromDrive = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
-    if (!silent) setSyncStatus('Sincronizando con Drive...');
     try {
       const res = await fetch('/api/drive/sync');
       const data = await res.json();
@@ -70,29 +68,30 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         if (onSyncDocuments) {
           onSyncDocuments(data.documents);
         }
-        if (!silent) {
-          setSyncStatus(`¡Sincronizado! ${data.documents.length} archivo(s) en Drive.`);
-          setTimeout(() => setSyncStatus(null), 4000);
-        }
-      } else {
-        if (!silent) {
-          setSyncStatus('No se pudo sincronizar');
-          setTimeout(() => setSyncStatus(null), 3500);
-        }
       }
     } catch (e) {
-      if (!silent) {
-        setSyncStatus('Error de conexión');
-        setTimeout(() => setSyncStatus(null), 3500);
-      }
+      // Silencioso en segundo plano
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Sincronización automática suave al abrir la vista de Documentos
+  // Sincronización automática silenciosa al entrar y al enfocar la ventana (ej. regresar de Drive)
   React.useEffect(() => {
-    handleSyncFromDrive(true);
+    handleSyncFromDrive();
+
+    const handleFocus = () => {
+      handleSyncFromDrive();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleFocus);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', handleFocus);
+      }
+    };
   }, []);
 
   // Modal rápido de creación: solo pide título y categoría
@@ -348,21 +347,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
         {/* Acciones directas */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {syncStatus && (
-            <span className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1.5 rounded-xl animate-in fade-in">
-              {syncStatus}
-            </span>
-          )}
-
-          <button
-            onClick={() => handleSyncFromDrive(false)}
-            disabled={isSyncing}
-            className="flex items-center gap-1.5 px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 disabled:opacity-60 rounded-xl text-xs font-semibold transition shadow-xs border border-stone-300/80"
-            title="Sincronizar archivos que subiste directamente a Google Drive"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-stone-600 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Drive'}</span>
-          </button>
 
           <a
             href={MIGALIA_DRIVE_URL}
