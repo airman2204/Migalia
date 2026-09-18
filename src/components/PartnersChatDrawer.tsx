@@ -126,7 +126,13 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
     onLaunchMeeting(meetingTitle);
   };
 
-  const otherPartner = partners.find((p) => p.id !== currentPartner?.id);
+  const otherPartner = partners.find((p) => {
+    if (!currentPartner) return true;
+    const isSameId = p.id === currentPartner.id;
+    const isSameEmail = Boolean(p.email && currentPartner.email && p.email.toLowerCase() === currentPartner.email.toLowerCase());
+    const isSameName = Boolean(p.name && currentPartner.name && p.name.toLowerCase() === currentPartner.name.toLowerCase());
+    return !isSameId && !isSameEmail && !isSameName;
+  });
   const isOtherPartnerOnline = Boolean(otherPartner?.isOnline);
 
   return (
@@ -160,16 +166,18 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
                 </h3>
                 {isOtherPartnerOnline ? (
                   <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/60">
-                    En línea
+                    {otherPartner?.shortName || 'Socio'}: En línea
                   </span>
                 ) : (
                   <span className="text-[9px] text-stone-400 font-medium bg-stone-800 px-1.5 py-0.2 rounded">
-                    Offline
+                    {otherPartner?.shortName || 'Socio'}: Offline
                   </span>
                 )}
               </div>
               {!isMinimized && (
-                <p className="text-[10px] text-stone-400 truncate">Mario & Susy · Migalia</p>
+                <p className="text-[10px] text-stone-400 truncate">
+                  {currentPartner?.shortName || 'Mario'} & {otherPartner?.shortName || 'Susy'} · Migalia
+                </p>
               )}
             </div>
           </div>

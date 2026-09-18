@@ -271,7 +271,6 @@ export default function Home() {
       if (dbPartners && dbPartners.length > 0) {
         setPartners((prev) =>
           dbPartners.map((p) => {
-            const existing = prev.find((x) => x.id === p.id || (x.email && p.email && x.email.toLowerCase() === p.email.toLowerCase()));
             const isMe =
               (activeUser?.id && p.id === activeUser.id) ||
               (activeUser?.email && p.email && p.email.toLowerCase() === activeUser.email.toLowerCase()) ||
@@ -290,7 +289,7 @@ export default function Home() {
               email: p.email,
               role: p.role,
               avatar: p.avatar || 'M',
-              isOnline: Boolean(isMe || existing?.isOnline || hasActiveHb),
+              isOnline: Boolean(isMe || hasActiveHb),
             };
           })
         );
@@ -542,7 +541,7 @@ export default function Home() {
 
             return {
               ...p,
-              isOnline: Boolean(isMe || isOnlineInSupabase || p.isOnline),
+              isOnline: Boolean(isMe || isOnlineInSupabase),
             };
           })
         );
