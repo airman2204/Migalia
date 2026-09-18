@@ -63,7 +63,7 @@ export default function Home() {
         if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
-    return INITIAL_RECIPES;
+    return [];
   });
   const [documents, setDocuments] = useState<MigaliaDocument[]>(() => {
     try {
@@ -314,27 +314,12 @@ export default function Home() {
 
         const dbRecipeList: Recipe[] = rawDbRecipeList.map(normalizeRecipe);
         
-        setRecipes((prev) => {
-          const map = new Map<string, Recipe>();
-          // 1. Cargar recetas existentes en memoria (preserva recetas recién creadas)
-          prev.forEach((r) => {
-            if (r?.id && !deletedRecipeIdsRef.current.has(r.id)) {
-              map.set(r.id, normalizeRecipe(r));
-            }
-          });
-          // 2. Integrar recetas confirmadas en Supabase
-          dbRecipeList.forEach((r) => {
-            if (r?.id && !deletedRecipeIdsRef.current.has(r.id)) {
-              map.set(r.id, r);
-            }
-          });
-
-          const merged = Array.from(map.values());
+        if (recipesMeta) {
+          setRecipes(dbRecipeList);
           try {
-            localStorage.setItem('migalia_recipes', JSON.stringify(merged));
+            localStorage.setItem('migalia_recipes', JSON.stringify(dbRecipeList));
           } catch (e) {}
-          return merged;
-        });
+        }
         } // end if (!isSavingRecipeRef.current)
 
         // Extraer documentos compartidos si existen en la nube
@@ -983,11 +968,27 @@ export default function Home() {
 
   const handleDeleteRecipe = async (recipeId: string) => {
     isSavingRecipeRef.current = true;
-    deletedRecipeIdsRef.current.add(recipeId);
-    const updated = recipes.filter((r) => r.id !== recipeId);
-    setRecipes(updated);
+    
+    // 1. Actualización optimista local inmediata
+    setRecipes((prev) => {
+      const updated = prev.filter((r) => r.id !== recipeId);
+      try {
+        localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
     try {
-      localStorage.setItem('migalia_recipes', JSON.stringify(updated));
+      // 2. Traer el catálogo vivo de la nube para borrar con precisión
+      const { data: currentMeta } = await supabase
+        .from('tasks')
+        .select('subtasks')
+        .eq('id', 'meta-recipes-catalog')
+        .maybeSingle();
+
+      const remoteList: any[] = (currentMeta && Array.isArray(currentMeta.subtasks)) ? currentMeta.subtasks : [];
+      const finalCleaned = remoteList.filter((r) => r.id !== recipeId);
+
       const { error } = await supabase.from('tasks').upsert({
         id: 'meta-recipes-catalog',
         title: 'Catálogo de Recetas y Fichas Técnicas',
@@ -996,17 +997,22 @@ export default function Home() {
         priority: 'medium',
         assigned_to: currentPartner?.id || 'partner-2',
         category: 'Operaciones',
-        subtasks: updated,
+        subtasks: finalCleaned,
       });
+
       if (!error) {
+        setRecipes(finalCleaned);
+        try {
+          localStorage.setItem('migalia_recipes', JSON.stringify(finalCleaned));
+        } catch (e) {}
         sendBroadcast('data_changed', { entity: 'recipes' });
       }
     } catch (e) {
-      console.error('Error al eliminar receta:', e);
+      console.error('Error al eliminar receta en Supabase:', e);
     } finally {
       setTimeout(() => {
         isSavingRecipeRef.current = false;
-      }, 2000);
+      }, 1500);
     }
   };
 
