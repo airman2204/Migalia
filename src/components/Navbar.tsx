@@ -43,9 +43,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="hidden sm:inline-block text-[11px] uppercase tracking-wider text-[#6E665D] font-medium border-l border-[#DDD5C7] pl-3">
             Planeación & Coordinación
           </span>
-          <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-400 font-mono font-bold">
-            v1.2.5 • Smoke Test
-          </span>
         </div>
 
         {/* Center Pill: "Mi Espacio" vs "Vista Global" */}
