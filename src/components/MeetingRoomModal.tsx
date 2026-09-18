@@ -21,7 +21,10 @@ import {
   PhoneOff,
   Radio,
   FileText,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface MeetingRoomModalProps {
   isOpen: boolean;
@@ -31,6 +34,15 @@ interface MeetingRoomModalProps {
   meetingData?: Partial<ScheduledMeeting> | null;
   onSaveMinuta: (entry: Omit<LogbookEntry, 'id'>) => void;
 }
+
+// Configuración STUN pública de alta disponibilidad de Google
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+  ],
+};
 
 export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   isOpen,
@@ -49,13 +61,19 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     meetingData?.attendees || partners.map((p) => p.name).join(', ') || 'Mario González & Susy'
   );
 
-  // Estados de Dispositivos WebRTC Locales
+  // Estados de Dispositivos Locales
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [hasMediaPermission, setHasMediaPermission] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
 
-  // Estados de IA y Captura de Notas
+  // Estados de Conexión WebRTC P2P
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connecting' | 'connected' | 'waiting' | 'failed'
+  >('waiting');
+  const [hasRemoteAudio, setHasRemoteAudio] = useState(true);
+
+  // Estados de IA y Minuta
   const [isRecordingNotes, setIsRecordingNotes] = useState(false);
   const [accumulatedNotes, setAccumulatedNotes] = useState<string[]>([]);
   const [agreements, setAgreements] = useState('');
@@ -63,14 +81,45 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
-  // Referencias a elementos y streams de video
+  // Referencias DOM y WebRTC
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const signalingChannelRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Función para apagar completamente la cámara y micrófono liberando el hardware físico
+  // Identificación del socio local y socio remoto
+  const partner1 = partners[0] || { name: 'Mario Alberto González', role: 'Finanzas & Legal', isOnline: true };
+  const remotePartner =
+    partners.find((p) => {
+      if (!currentPartner) return true;
+      const isSameId = p.id === currentPartner.id;
+      const isSameEmail = Boolean(p.email && currentPartner.email && p.email.toLowerCase() === currentPartner.email.toLowerCase());
+      const isSameName = Boolean(p.name && currentPartner.name && p.name.toLowerCase() === currentPartner.name.toLowerCase());
+      return !isSameId && !isSameEmail && !isSameName;
+    }) || partners[1] || { name: 'Susy', role: 'Dirección Culinaria & Operaciones', isOnline: false };
+
+  // Limpieza y detención de tracks locales y túnel WebRTC
   const stopAllMediaTracks = useCallback(() => {
-    // 1. Detener stream de la referencia
+    // 1. Cerrar PeerConnection
+    if (peerConnectionRef.current) {
+      try {
+        peerConnectionRef.current.close();
+      } catch (e) {}
+      peerConnectionRef.current = null;
+    }
+
+    // 2. Desuscribir canal de señalización
+    if (signalingChannelRef.current) {
+      try {
+        supabase.removeChannel(signalingChannelRef.current);
+      } catch (e) {}
+      signalingChannelRef.current = null;
+    }
+
+    // 3. Detener MediaStream Local
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => {
         try {
@@ -81,21 +130,15 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
       mediaStreamRef.current = null;
     }
 
-    // 2. Limpiar elemento de video
+    // 4. Limpiar elementos de video
     if (localVideoRef.current) {
-      if (localVideoRef.current.srcObject) {
-        const stream = localVideoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach((track) => {
-          try {
-            track.stop();
-            track.enabled = false;
-          } catch (e) {}
-        });
-        localVideoRef.current.srcObject = null;
-      }
+      localVideoRef.current.srcObject = null;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
     }
 
-    // 3. Detener reconocimiento de voz
+    // 5. Detener notas por voz
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -104,41 +147,180 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     }
   }, []);
 
-  // Cierre limpio de la llamada
   const handleExitCall = useCallback(() => {
+    // Avisar que salgo de la sala
+    try {
+      if (signalingChannelRef.current) {
+        signalingChannelRef.current.send({
+          type: 'broadcast',
+          event: 'call_signal',
+          payload: {
+            senderId: currentPartner?.id || 'mario',
+            type: 'user_left',
+          },
+        });
+      }
+    } catch (e) {}
+
     stopAllMediaTracks();
     onClose();
-  }, [stopAllMediaTracks, onClose]);
+  }, [stopAllMediaTracks, onClose, currentPartner?.id]);
 
-  // 1. Iniciar WebRTC nativo (cámara y micrófono locales del socio)
+  // ============================================================
+  // FLUJO DE CONEXIÓN WEBRTC P2P CON SUPABASE BROADCAST
+  // ============================================================
   useEffect(() => {
-    let activeStream: MediaStream | null = null;
+    let localStream: MediaStream | null = null;
+    let pc: RTCPeerConnection | null = null;
+    const myId = currentPartner?.id || (currentPartner?.shortName === 'Susy' ? 'partner-2' : 'partner-1');
 
-    async function startLocalWebRTC() {
+    async function initWebRTC() {
       try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-            audio: true,
-          });
+        // 1. Obtener audio y video de la cámara local
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          audio: true,
+        });
 
-          activeStream = stream;
-          mediaStreamRef.current = stream;
-          setHasMediaPermission(true);
+        mediaStreamRef.current = localStream;
+        setHasMediaPermission(true);
 
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStream;
         }
+
+        // 2. Crear RTCPeerConnection con STUN de Google
+        pc = new RTCPeerConnection(ICE_SERVERS);
+        peerConnectionRef.current = pc;
+
+        // Añadir tracks locales a la conexión para enviarlos al otro socio
+        localStream.getTracks().forEach((track) => {
+          pc?.addTrack(track, localStream!);
+        });
+
+        // 3. Al recibir video/audio remoto del otro socio
+        pc.ontrack = (event) => {
+          console.log('Track remoto recibido:', event.track.kind);
+          if (remoteVideoRef.current && event.streams && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+            setConnectionStatus('connected');
+          }
+          if (remoteAudioRef.current && event.streams && event.streams[0]) {
+            remoteAudioRef.current.srcObject = event.streams[0];
+          }
+        };
+
+        // Estado del ICE
+        pc.oniceconnectionstatechange = () => {
+          console.log('Estado ICE:', pc?.iceConnectionState);
+          if (pc?.iceConnectionState === 'connected' || pc?.iceConnectionState === 'completed') {
+            setConnectionStatus('connected');
+          } else if (pc?.iceConnectionState === 'disconnected' || pc?.iceConnectionState === 'failed') {
+            setConnectionStatus('waiting');
+          }
+        };
+
+        // 4. Conectar al canal de señalización de Supabase
+        const channel = supabase.channel('migalia_call_signal');
+        signalingChannelRef.current = channel;
+
+        // Escuchar ICE Candidates locales y transmitirlos al otro socio
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            channel.send({
+              type: 'broadcast',
+              event: 'call_signal',
+              payload: {
+                senderId: myId,
+                type: 'candidate',
+                candidate: event.candidate,
+              },
+            });
+          }
+        };
+
+        // Escuchar eventos de señalización del otro socio
+        channel.on('broadcast', { event: 'call_signal' }, async ({ payload }) => {
+          if (!payload || payload.senderId === myId) return; // Ignorar mis propios mensajes
+
+          const peerPc = peerConnectionRef.current;
+          if (!peerPc) return;
+
+          try {
+            if (payload.type === 'ready') {
+              // El otro socio entró o está listo. Si soy el iniciador, creo Offer
+              setConnectionStatus('connecting');
+              const offer = await peerPc.createOffer();
+              await peerPc.setLocalDescription(offer);
+              channel.send({
+                type: 'broadcast',
+                event: 'call_signal',
+                payload: {
+                  senderId: myId,
+                  type: 'offer',
+                  sdp: offer,
+                },
+              });
+            } else if (payload.type === 'offer') {
+              // Recibí Offer -> creo Answer
+              setConnectionStatus('connecting');
+              await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+              const answer = await peerPc.createAnswer();
+              await peerPc.setLocalDescription(answer);
+              channel.send({
+                type: 'broadcast',
+                event: 'call_signal',
+                payload: {
+                  senderId: myId,
+                  type: 'answer',
+                  sdp: answer,
+                },
+              });
+            } else if (payload.type === 'answer') {
+              // Recibí Answer
+              await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+              setConnectionStatus('connected');
+            } else if (payload.type === 'candidate' && payload.candidate) {
+              // Recibí ICE Candidate
+              try {
+                await peerPc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+              } catch (e) {}
+            } else if (payload.type === 'user_left') {
+              // El socio remoto salió
+              setConnectionStatus('waiting');
+              if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = null;
+              }
+            }
+          } catch (sigErr) {
+            console.error('Error en señalización WebRTC:', sigErr);
+          }
+        });
+
+        // Suscribirse y emitir aviso 'ready'
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            // Anunciar que entré a la sala para iniciar el apretón de manos WebRTC
+            channel.send({
+              type: 'broadcast',
+              event: 'call_signal',
+              payload: {
+                senderId: myId,
+                type: 'ready',
+              },
+            });
+          }
+        });
+
       } catch (err) {
-        console.warn('Acceso a cámara/micrófono no concedido o no disponible:', err);
+        console.warn('Acceso a cámara/micrófono no disponible:', err);
         setHasMediaPermission(false);
       }
     }
 
-    startLocalWebRTC();
+    initWebRTC();
 
-    // Contador de tiempo de llamada
+    // Cronómetro de llamada
     const interval = setInterval(() => {
       setCallDuration((prev) => prev + 1);
     }, 1000);
@@ -146,16 +328,8 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     return () => {
       clearInterval(interval);
       stopAllMediaTracks();
-      if (activeStream) {
-        activeStream.getTracks().forEach((track) => {
-          try {
-            track.stop();
-            track.enabled = false;
-          } catch (e) {}
-        });
-      }
     };
-  }, [stopAllMediaTracks]);
+  }, [stopAllMediaTracks, currentPartner?.id, currentPartner?.shortName]);
 
   // 2. Control de Captura de Notas con Reconocimiento de Voz
   useEffect(() => {
@@ -178,7 +352,6 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
               if (snippet.length > 3) {
                 setAccumulatedNotes((prev) => {
                   const updated = [...prev, snippet];
-                  // Actualizar también directamente el texto de la minuta
                   setAgreements((prevAgr) => {
                     if (!prevAgr) {
                       return `• ${snippet}`;
@@ -197,7 +370,6 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
         };
 
         recognition.onend = () => {
-          // Si sigue activo el estado de grabación de notas, reconectar
           if (recognitionRef.current && isRecordingNotes) {
             try {
               recognition.start();
@@ -229,7 +401,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     };
   }, [isRecordingNotes]);
 
-  // Alternar Captura de Notas (Tomar Notas / Parar Notas)
+  // Alternar Captura de Notas
   const toggleNotesCapture = () => {
     setIsRecordingNotes((prev) => !prev);
   };
@@ -256,7 +428,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     }
   };
 
-  // 3. Guardar Minuta en el Historial de Bitácora (Sin envío de correo)
+  // Guardar Minuta en Bitácora
   const handleSaveMinutaOnly = () => {
     if (!sessionTitle.trim() || !agreements.trim()) {
       alert('Por favor agrega notas o acuerdos para guardar en la minuta.');
@@ -265,7 +437,6 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Registrar directamente en Bitácora central / historial de minutas
     onSaveMinuta({
       title: `Minuta Sesión: ${sessionTitle}`,
       content: agreements,
@@ -293,18 +464,14 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const partner1 = partners[0] || { name: 'Mario Alberto González', role: 'Finanzas & Legal', isOnline: true };
-  const remotePartner =
-    partners.find((p) => p.id !== currentPartner?.id) ||
-    partners[1] || { name: 'Susy', role: 'Dirección Culinaria & Operaciones', isOnline: false };
-
+  // Modal minimizado Picture-in-Picture
   if (isMinimized) {
     return (
       <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 duration-200">
         <div className="w-80 bg-stone-950 text-white rounded-2xl border border-amber-500/50 shadow-2xl p-3.5 backdrop-blur-md">
           <div className="flex items-center justify-between mb-2 pb-2 border-b border-stone-800">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'} animate-pulse`} />
               <span className="text-xs font-bold truncate max-w-[130px]">{sessionTitle}</span>
               <span className="text-[10px] font-mono text-amber-400 bg-stone-900 px-1.5 py-0.5 rounded">
                 {formatTimer(callDuration)}
@@ -368,6 +535,9 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
+      {/* Audio oculto para reproducción sin interrupciones */}
+      <audio ref={remoteAudioRef} autoPlay playsInline />
+
       <div className="bg-stone-950 w-full h-[95vh] max-w-7xl rounded-3xl border border-stone-800 shadow-2xl flex flex-col overflow-hidden text-stone-100">
         {/* Header Superior del Studio */}
         <div className="px-6 py-3.5 bg-stone-900 border-b border-stone-800 flex items-center justify-between gap-4">
@@ -388,6 +558,21 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
               <span className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold border border-emerald-500/20">
                 <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" /> En Vivo
               </span>
+
+              <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${
+                connectionStatus === 'connected'
+                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60'
+                  : connectionStatus === 'connecting'
+                  ? 'bg-amber-950 text-amber-300 border border-amber-800/60 animate-pulse'
+                  : 'bg-stone-800 text-stone-400 border border-stone-700'
+              }`}>
+                {connectionStatus === 'connected'
+                  ? 'P2P Conectado'
+                  : connectionStatus === 'connecting'
+                  ? 'Conectando audio/video...'
+                  : `Esperando a ${remotePartner?.shortName || 'socio'}...`}
+              </span>
+
               <span className="text-xs font-mono text-stone-300 font-bold bg-stone-800 px-2.5 py-1 rounded-lg border border-stone-700">
                 {formatTimer(callDuration)}
               </span>
@@ -414,7 +599,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
           </div>
         </div>
 
-        {/* Cuerpo Dividido: Sala de Video (WebRTC) vs Panel de Minuta Inteligente */}
+        {/* Cuerpo Dividido: Sala de Video (WebRTC P2P) vs Panel de Minuta Inteligente */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* LADO IZQUIERDO: Grilla de Video Nativa (WebRTC) */}
           <div className="flex-1 flex flex-col bg-stone-900 p-4 border-b lg:border-b-0 lg:border-r border-stone-800 justify-between">
@@ -455,32 +640,47 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                 </div>
               </div>
 
-              {/* Cámara 2: Socio Remoto (Susy / Mario) */}
+              {/* Cámara 2: Socio Remoto (WebRTC P2P con Audio y Video en Vivo) */}
               <div className="relative bg-stone-950 rounded-2xl overflow-hidden border border-stone-800 h-full min-h-[220px] flex items-center justify-center shadow-lg">
-                <div className="text-center p-6 text-stone-400">
-                  <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-xl font-bold text-amber-400 mx-auto mb-2 border border-stone-700 shadow-md">
-                    {remotePartner.name.charAt(0)}
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className={`w-full h-full object-cover ${connectionStatus === 'connected' ? 'block' : 'hidden'}`}
+                />
+
+                {connectionStatus !== 'connected' && (
+                  <div className="text-center p-6 text-stone-400">
+                    <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-xl font-bold text-amber-400 mx-auto mb-2 border border-stone-700 shadow-md">
+                      {remotePartner.name.charAt(0)}
+                    </div>
+                    <p className="text-xs font-bold text-stone-200">{remotePartner.name}</p>
+                    <p className="text-[11px] text-amber-400/90 font-medium">{remotePartner.role}</p>
+
+                    <div className="mt-3 flex flex-col items-center gap-1.5">
+                      {remotePartner.isOnline ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/40 rounded-full font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Conectando video en tiempo real...
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 bg-stone-800 text-stone-400 border border-stone-700 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-stone-500" />
+                          {remotePartner.shortName} aún no ha entrado a la llamada
+                        </span>
+                      )}
+                      <span className="text-[10px] text-stone-500">
+                        {remotePartner.shortName} debe presionar "Entrar a la Sala" en su pantalla
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-xs font-bold text-stone-200">{remotePartner.name}</p>
-                  <p className="text-[11px] text-amber-400/90 font-medium">{remotePartner.role}</p>
-                  {remotePartner.isOnline ? (
-                    <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] px-2.5 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/40 rounded-full font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Disponible en la plataforma
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] px-2.5 py-0.5 bg-stone-800 text-stone-400 border border-stone-700 rounded-full">
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-500" />
-                      Fuera de línea
-                    </span>
-                  )}
-                </div>
+                )}
 
                 {/* Badge de Socio Remoto */}
                 <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-xl text-xs flex items-center gap-2 border border-white/10">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      remotePartner.isOnline ? 'bg-emerald-400' : 'bg-stone-500'
+                      connectionStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-stone-500'
                     }`}
                   />
                   <span className="font-bold text-white text-[11px]">{remotePartner.name}</span>
@@ -519,32 +719,40 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
               <button
                 type="button"
                 onClick={handleExitCall}
-                className="px-5 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg transition"
-                title="Finalizar llamada"
+                className="px-5 py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition flex items-center gap-2 shadow-lg"
+                title="Salir y colgar llamada"
               >
                 <PhoneOff className="w-4 h-4" />
-                <span>Finalizar Llamada</span>
+                <span className="text-xs">Finalizar Sesión</span>
               </button>
             </div>
           </div>
 
-          {/* LADO DERECHO: Control de Notas y Guardado en Historial de Minutas */}
-          <div className="w-full lg:w-[480px] bg-stone-900 p-5 flex flex-col justify-between overflow-y-auto space-y-4">
+          {/* LADO DERECHO: Panel de Minuta Inteligente Asistida */}
+          <div className="w-full lg:w-[480px] bg-stone-900/60 p-5 flex flex-col justify-between overflow-y-auto">
             <div className="space-y-4">
-              {/* Título y Metadatos */}
+              {/* Título de la Sesión y Asistentes */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                  Título de la Sesión
-                </label>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-sm font-bold text-white tracking-wide">
+                    Minuta Inteligente & Acuerdos
+                  </h3>
+                </div>
                 <input
                   type="text"
                   value={sessionTitle}
                   onChange={(e) => setSessionTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                  placeholder="Título de la reunión..."
+                  className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-xl text-xs text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 font-semibold"
                 />
+                <p className="text-[11px] text-stone-400 mt-1 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Participantes: <strong className="text-stone-300">{attendees}</strong></span>
+                </p>
               </div>
 
-              {/* Botón de Captura: Tomar Notas / Parar Notas */}
+              {/* Botón de Grabación de Notas por Voz */}
               <div>
                 <button
                   type="button"
