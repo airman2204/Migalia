@@ -231,4 +231,15 @@ export interface ScheduledMeeting {
   createdAt: string;
 }
 
-
+/**
+ * Elemento archivado en la Papelera de Reciclaje (permite restauración o purga permanente).
+ */
+export interface TrashedItem {
+  id: string;
+  originalId: string;
+  type: 'recipe' | 'task' | 'document' | 'logbook' | 'milestone' | 'meeting';
+  title: string;
+  deletedAt: string;
+  deletedBy: string;
+  payload: any;
+}

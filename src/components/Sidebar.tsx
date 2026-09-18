@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files, Sparkles, FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files, Sparkles, FileSpreadsheet, Trash2 } from 'lucide-react';
 
 export type ActiveTab =
   | 'dashboard'
@@ -25,8 +25,10 @@ interface SidebarProps {
     milestones: number;
     recipes?: number;
     documents?: number;
+    trash?: number;
   };
   onOpenSettings?: () => void;
+  onOpenTrash?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -34,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   counts,
   onOpenSettings,
+  onOpenTrash,
 }) => {
   // Orden estratégico: Actividades, Kanban, Recetario & Costeo, Documentos & Archivos, Bitácora, Hitos
   const menuItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
@@ -133,6 +136,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
         </button>
+
+        {onOpenTrash && (
+          <button
+            onClick={onOpenTrash}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-[#8C6239] hover:text-[#221F1D] hover:bg-[#EBE7DF] border border-[#DDD5C7] transition-all shadow-2xs group"
+          >
+            <div className="flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-[#8C6239] group-hover:text-red-500 transition-colors" />
+              <span>Papelera</span>
+            </div>
+            {Boolean(counts.trash && counts.trash > 0) && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700">
+                {counts.trash}
+              </span>
+            )}
+          </button>
+        )}
 
         {onOpenSettings && (
           <button

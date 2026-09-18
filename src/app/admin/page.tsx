@@ -23,6 +23,7 @@ import { MeetingsCalendarModal } from '@/components/MeetingsCalendarModal';
 import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { IncomingCallToast } from '@/components/IncomingCallToast';
 import { ChatToast } from '@/components/ChatToast';
+import { TrashBinModal } from '@/components/TrashBinModal';
 import { soundManager } from '@/lib/soundEffects';
 import { supabase } from '@/lib/supabase';
 
@@ -44,6 +45,7 @@ import {
   MigaliaDocument,
   ScheduledMeeting,
   ChatMessage,
+  TrashedItem,
 } from '@/types';
 
 export default function Home() {
@@ -120,6 +122,17 @@ export default function Home() {
 
   // Modales y Estados de Comunicación
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [trashedItems, setTrashedItems] = useState<TrashedItem[]>(() => {
+    try {
+      const local = localStorage.getItem('migalia_trash_bin');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -363,6 +376,15 @@ export default function Home() {
           setMeetings(meetingsMeta.subtasks);
           try {
             localStorage.setItem('migalia_scheduled_meetings', JSON.stringify(meetingsMeta.subtasks));
+          } catch (e) {}
+        }
+
+        // Extraer papelera de reciclaje compartida si existe en la nube
+        const trashMeta = dbTasks.find((t) => t.id === 'meta-trash-bin');
+        if (trashMeta && Array.isArray(trashMeta.subtasks)) {
+          setTrashedItems(trashMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_trash_bin', JSON.stringify(trashMeta.subtasks));
           } catch (e) {}
         }
 
@@ -803,7 +825,127 @@ export default function Home() {
     });
   };
 
+  // ==========================================
+  // PAPELERA DE RECICLAJE (SOFT DELETE & RESTORE)
+  // ==========================================
+  const handleSoftDelete = async (item: TrashedItem) => {
+    // 1. Añadir a papelera local
+    const updatedTrash = [item, ...trashedItems.filter((t) => t.id !== item.id)];
+    setTrashedItems(updatedTrash);
+    try {
+      localStorage.setItem('migalia_trash_bin', JSON.stringify(updatedTrash));
+      // 2. Persistir en Supabase
+      await supabase.from('tasks').upsert({
+        id: 'meta-trash-bin',
+        title: 'Papelera de Reciclaje y Elementos Eliminados',
+        description: 'Elementos resguardados para recuperación',
+        status: 'done',
+        priority: 'low',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Sistema',
+        subtasks: updatedTrash,
+      });
+      sendBroadcast('data_changed', { entity: 'trash' });
+    } catch (e) {
+      console.error('Error al enviar a papelera:', e);
+    }
+  };
+
+  const handleRestoreItem = async (item: TrashedItem) => {
+    // 1. Quitar de la papelera
+    const remainingTrash = trashedItems.filter((t) => t.id !== item.id);
+    setTrashedItems(remainingTrash);
+    try {
+      localStorage.setItem('migalia_trash_bin', JSON.stringify(remainingTrash));
+      await supabase.from('tasks').upsert({
+        id: 'meta-trash-bin',
+        title: 'Papelera de Reciclaje y Elementos Eliminados',
+        description: 'Elementos resguardados para recuperación',
+        status: 'done',
+        priority: 'low',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Sistema',
+        subtasks: remainingTrash,
+      });
+    } catch (e) {}
+
+    // 2. Restaurar según tipo
+    if (item.type === 'task') {
+      const restoredTask = item.payload as Task;
+      if (restoredTask) {
+        await handleSaveTask(restoredTask);
+      }
+    } else if (item.type === 'recipe') {
+      const restoredRecipe = item.payload as Recipe;
+      if (restoredRecipe) {
+        await handleSaveRecipe(restoredRecipe);
+      }
+    } else if (item.type === 'document') {
+      const restoredDoc = item.payload as MigaliaDocument;
+      if (restoredDoc) {
+        await handleSaveDocument(restoredDoc);
+      }
+    } else if (item.type === 'milestone') {
+      const restoredMilestone = item.payload as Milestone;
+      if (restoredMilestone) {
+        await handleAddMilestone(restoredMilestone);
+      }
+    }
+
+    sendBroadcast('data_changed', { entity: 'trash' });
+  };
+
+  const handlePermanentDeleteItem = async (trashId: string) => {
+    const remaining = trashedItems.filter((t) => t.id !== trashId);
+    setTrashedItems(remaining);
+    try {
+      localStorage.setItem('migalia_trash_bin', JSON.stringify(remaining));
+      await supabase.from('tasks').upsert({
+        id: 'meta-trash-bin',
+        title: 'Papelera de Reciclaje y Elementos Eliminados',
+        description: 'Elementos resguardados para recuperación',
+        status: 'done',
+        priority: 'low',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Sistema',
+        subtasks: remaining,
+      });
+      sendBroadcast('data_changed', { entity: 'trash' });
+    } catch (e) {}
+  };
+
+  const handleEmptyTrash = async () => {
+    setTrashedItems([]);
+    try {
+      localStorage.setItem('migalia_trash_bin', JSON.stringify([]));
+      await supabase.from('tasks').upsert({
+        id: 'meta-trash-bin',
+        title: 'Papelera de Reciclaje y Elementos Eliminados',
+        description: 'Elementos resguardados para recuperación',
+        status: 'done',
+        priority: 'low',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Sistema',
+        subtasks: [],
+      });
+      sendBroadcast('data_changed', { entity: 'trash' });
+    } catch (e) {}
+  };
+
   const handleDeleteTask = async (taskId: string) => {
+    const taskToDelete = tasks.find((t) => t.id === taskId);
+    if (taskToDelete) {
+      const trashed: TrashedItem = {
+        id: 'trash-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        originalId: taskToDelete.id,
+        type: 'task',
+        title: taskToDelete.title || 'Actividad sin título',
+        deletedAt: new Date().toISOString(),
+        deletedBy: currentPartner?.name || currentPartner?.shortName || 'Socio',
+        payload: taskToDelete,
+      };
+      await handleSoftDelete(trashed);
+    }
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     await supabase.from('tasks').delete().eq('id', taskId);
     supabase.channel('migalia_presence').send({
@@ -880,6 +1022,19 @@ export default function Home() {
   };
 
   const handleDeleteMilestone = async (id: string) => {
+    const milestoneToDelete = milestones.find((m) => m.id === id);
+    if (milestoneToDelete) {
+      const trashed: TrashedItem = {
+        id: 'trash-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        originalId: milestoneToDelete.id,
+        type: 'milestone',
+        title: milestoneToDelete.title || 'Hito sin título',
+        deletedAt: new Date().toISOString(),
+        deletedBy: currentPartner?.name || currentPartner?.shortName || 'Socio',
+        payload: milestoneToDelete,
+      };
+      await handleSoftDelete(trashed);
+    }
     setMilestones((prev) => prev.filter((m) => m.id !== id));
     await supabase.from('milestones').delete().eq('id', id);
     supabase.channel('migalia_presence').send({
@@ -998,6 +1153,21 @@ export default function Home() {
   const handleDeleteRecipe = async (recipeId: string) => {
     isSavingRecipeRef.current = true;
     
+    // Resguardar en la papelera de reciclaje
+    const recipeToDelete = recipes.find((r) => r.id === recipeId);
+    if (recipeToDelete) {
+      const trashed: TrashedItem = {
+        id: 'trash-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        originalId: recipeToDelete.id,
+        type: 'recipe',
+        title: recipeToDelete.title || 'Receta sin título',
+        deletedAt: new Date().toISOString(),
+        deletedBy: currentPartner?.name || currentPartner?.shortName || 'Socio',
+        payload: recipeToDelete,
+      };
+      await handleSoftDelete(trashed);
+    }
+
     // 1. Actualización optimista local inmediata
     setRecipes((prev) => {
       const updated = prev.filter((r) => r.id !== recipeId);
@@ -1131,8 +1301,21 @@ export default function Home() {
   };
 
   const handleDeleteDocument = async (docId: string) => {
-    // Buscar si el documento tiene un archivo asociado de Google Drive
+    // Buscar si el documento existe y respaldar en papelera
     const docToDelete = documents.find((d) => d.id === docId);
+    if (docToDelete) {
+      const trashed: TrashedItem = {
+        id: 'trash-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        originalId: docToDelete.id,
+        type: 'document',
+        title: docToDelete.title || 'Documento sin título',
+        deletedAt: new Date().toISOString(),
+        deletedBy: currentPartner?.name || currentPartner?.shortName || 'Socio',
+        payload: docToDelete,
+      };
+      await handleSoftDelete(trashed);
+    }
+
     const updated = documents.filter((d) => d.id !== docId);
     setDocuments(updated);
     try {
@@ -1228,8 +1411,9 @@ export default function Home() {
       milestones: milestones.length,
       recipes: recipes.length,
       documents: documents.length,
+      trash: trashedItems.length,
     }),
-    [displayedTasks, logbook.length, milestones.length, recipes.length, documents.length]
+    [displayedTasks, logbook.length, milestones.length, recipes.length, documents.length, trashedItems.length]
   );
 
   if (isLoaded && !currentPartner) {
@@ -1279,6 +1463,7 @@ export default function Home() {
             onTabChange={handleTabChange}
             counts={counts}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenTrash={() => setIsTrashOpen(true)}
           />
         </div>
 
@@ -1557,6 +1742,16 @@ export default function Home() {
         onSavePartners={handleSavePartners}
         budget={budget}
         onSaveBudget={handleSaveBudget}
+      />
+
+      {/* Modal de Papelera de Reciclaje */}
+      <TrashBinModal
+        isOpen={isTrashOpen}
+        onClose={() => setIsTrashOpen(false)}
+        trashedItems={trashedItems}
+        onRestoreItem={handleRestoreItem}
+        onPermanentDeleteItem={handlePermanentDeleteItem}
+        onEmptyTrash={handleEmptyTrash}
       />
 
       {/* Drawer de Chat Interno entre Socios */}
