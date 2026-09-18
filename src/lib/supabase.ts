@@ -19,7 +19,21 @@ function getSupabaseClient(): SupabaseClient {
   const validUrl = typeof url === 'string' && url.startsWith('http') ? url : defaultUrl;
   const validKey = typeof key === 'string' && key.length > 10 ? key : defaultKey;
 
-  return createClient(validUrl, validKey);
+  return createClient(validUrl, validKey, {
+    global: {
+      fetch: (url, options = {}) => {
+        return fetch(url, {
+          ...options,
+          cache: 'no-store',
+          headers: {
+            ...options.headers,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        });
+      },
+    },
+  });
 }
 
 export const supabase = getSupabaseClient();

@@ -110,6 +110,7 @@ export default function Home() {
   const presenceChannelRef = useRef<any>(null);
   const chatChannelRef = useRef<any>(null);
   const isSavingRecipeRef = useRef(false);
+  const deletedRecipeIdsRef = useRef<Set<string>>(new Set());
   const [isGlobalMeetingOpen, setIsGlobalMeetingOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -313,24 +314,27 @@ export default function Home() {
 
         const dbRecipeList: Recipe[] = rawDbRecipeList.map(normalizeRecipe);
         
-        if (recipesMeta) {
-          // Si existe el catálogo en la nube, la nube es la fuente oficial
-          setRecipes(dbRecipeList);
-          try {
-            localStorage.setItem('migalia_recipes', JSON.stringify(dbRecipeList));
-          } catch (e) {}
-        } else {
-          // Solo si la nube no tiene registro aún, intentar recuperar de localStorage
-          try {
-            const local = localStorage.getItem('migalia_recipes');
-            if (local) {
-              const parsed: any[] = JSON.parse(local);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                setRecipes(parsed.map(normalizeRecipe));
-              }
+        setRecipes((prev) => {
+          const map = new Map<string, Recipe>();
+          // 1. Cargar recetas existentes en memoria (preserva recetas recién creadas)
+          prev.forEach((r) => {
+            if (r?.id && !deletedRecipeIdsRef.current.has(r.id)) {
+              map.set(r.id, normalizeRecipe(r));
             }
+          });
+          // 2. Integrar recetas confirmadas en Supabase
+          dbRecipeList.forEach((r) => {
+            if (r?.id && !deletedRecipeIdsRef.current.has(r.id)) {
+              map.set(r.id, r);
+            }
+          });
+
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem('migalia_recipes', JSON.stringify(merged));
           } catch (e) {}
-        }
+          return merged;
+        });
         } // end if (!isSavingRecipeRef.current)
 
         // Extraer documentos compartidos si existen en la nube
@@ -907,6 +911,7 @@ export default function Home() {
   // 6. Operaciones de Recetas & Fichas Técnicas
   const handleSaveRecipe = async (recipeData: Recipe) => {
     isSavingRecipeRef.current = true;
+    deletedRecipeIdsRef.current.delete(recipeData.id);
 
     // 1. Actualización optimista local inmediata
     setRecipes((prev) => {
@@ -978,6 +983,7 @@ export default function Home() {
 
   const handleDeleteRecipe = async (recipeId: string) => {
     isSavingRecipeRef.current = true;
+    deletedRecipeIdsRef.current.add(recipeId);
     const updated = recipes.filter((r) => r.id !== recipeId);
     setRecipes(updated);
     try {
