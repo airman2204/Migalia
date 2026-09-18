@@ -22,14 +22,13 @@ function getSupabaseClient(): SupabaseClient {
   return createClient(validUrl, validKey, {
     global: {
       fetch: (url, options = {}) => {
+        const headers = new Headers(options.headers || {});
+        headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        headers.set('Pragma', 'no-cache');
         return fetch(url, {
           ...options,
           cache: 'no-store',
-          headers: {
-            ...options.headers,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            Pragma: 'no-cache',
-          },
+          headers,
         });
       },
     },

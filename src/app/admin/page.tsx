@@ -52,7 +52,18 @@ export default function Home() {
 
   // Estado sincronizado con Supabase
   const [partners, setPartners] = useState<Partner[]>(DEFAULT_PARTNERS);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('migalia_tasks_cache');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
   const [logbook, setLogbook] = useState<LogbookEntry[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
@@ -343,8 +354,7 @@ export default function Home() {
         // Filtrar meta-registros del listado de tareas visibles
         const normalTasks = dbTasks.filter((t) => !t.id.startsWith('meta-'));
 
-        setTasks(
-          normalTasks.map((t) => {
+        const mappedTasks = normalTasks.map((t) => {
             const rawSubtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
             const metaCost = rawSubtasks.find((s: any) => s.id === 'meta-cost');
             const cleanSubtasks = rawSubtasks.filter((s: any) => s.id !== 'meta-cost');
@@ -376,8 +386,12 @@ export default function Home() {
               subtasks: cleanSubtasks,
               createdAt: t.created_at,
             };
-          })
-        );
+          });
+
+        setTasks(mappedTasks);
+        try {
+          localStorage.setItem('migalia_tasks_cache', JSON.stringify(mappedTasks));
+        } catch (e) {}
       }
 
       // Cargar Bitácora
