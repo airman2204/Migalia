@@ -6,12 +6,14 @@ import { MeetingRoomModal } from './MeetingRoomModal';
 interface LogbookViewProps {
   entries: LogbookEntry[];
   partners: Partner[];
+  currentPartner?: Partner | null;
   onAddEntry: (entry: Omit<LogbookEntry, 'id'>) => void;
 }
 
 export const LogbookView: React.FC<LogbookViewProps> = ({
   entries,
   partners,
+  currentPartner,
   onAddEntry,
 }) => {
   const [showForm, setShowForm] = useState(false);
@@ -214,6 +216,7 @@ export const LogbookView: React.FC<LogbookViewProps> = ({
         isOpen={isMeetingModalOpen}
         onClose={() => setIsMeetingModalOpen(false)}
         partners={partners}
+        currentPartner={currentPartner}
         onSaveMinuta={(entry) => {
           onAddEntry(entry);
         }}

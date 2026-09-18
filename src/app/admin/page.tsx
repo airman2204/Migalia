@@ -49,13 +49,63 @@ import {
   TrashedItem,
 } from '@/types';
 
+// Normaliza la identidad del socio logueado para garantizar consistencia con los socios fundadores
+function normalizePartnerIdentity(p: Partner | null): Partner | null {
+  if (!p) return null;
+  const lowerEmail = (p.email || '').toLowerCase();
+  const lowerName = (p.name || '').toLowerCase();
+  const lowerShortName = (p.shortName || '').toLowerCase();
+
+  // Si es Mario
+  if (
+    p.id === 'partner-1' ||
+    lowerEmail.includes('mario') ||
+    lowerName.includes('mario') ||
+    lowerShortName.includes('mario')
+  ) {
+    return {
+      ...p,
+      id: 'partner-1',
+      name: 'Mario Alberto Gonzalez Cervantes',
+      shortName: 'Mario',
+      email: 'mario.gonzalez@migaliabakery.com',
+      role: 'Administrador',
+      avatar: '1',
+    };
+  }
+
+  // Si es Susy
+  if (
+    p.id === 'partner-2' ||
+    lowerEmail.includes('susana') ||
+    lowerEmail.includes('castilla') ||
+    lowerName.includes('susana') ||
+    lowerShortName.includes('susy')
+  ) {
+    return {
+      ...p,
+      id: 'partner-2',
+      name: 'Susana Castilla Vega',
+      shortName: 'Susy',
+      email: 'castillasusana@migaliabakery.com',
+      role: 'Administrador',
+      avatar: '2',
+    };
+  }
+
+  return p;
+}
+
 export default function Home() {
   // Autenticación de Socio Activo (leído síncronamente de localStorage)
   const [currentPartner, setCurrentPartner] = useState<Partner | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('migalia_auth_partner');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return normalizePartnerIdentity(parsed);
+        }
       } catch (e) {}
     }
     return null;
@@ -244,7 +294,7 @@ export default function Home() {
       const savedUser = localStorage.getItem('migalia_auth_partner');
       if (savedUser) {
         try {
-          const parsed = JSON.parse(savedUser);
+          const parsed = normalizePartnerIdentity(JSON.parse(savedUser));
           activeUser = parsed;
           setCurrentPartner((prev) => prev || parsed);
         } catch (e) {}
@@ -731,10 +781,11 @@ export default function Home() {
 
   // Manejador de Login
   const handleLogin = (partner: Partner) => {
-    setCurrentPartner(partner);
+    const normalized = normalizePartnerIdentity(partner) || partner;
+    setCurrentPartner(normalized);
     // Iniciar siempre en Vista Global para ver las 15 actividades del proyecto
     setSelectedPartnerFilter('all');
-    localStorage.setItem('migalia_auth_partner', JSON.stringify(partner));
+    localStorage.setItem('migalia_auth_partner', JSON.stringify(normalized));
   };
 
   // Manejador de Logout
@@ -1546,6 +1597,7 @@ export default function Home() {
             <LogbookView
               entries={logbook}
               partners={partners}
+              currentPartner={currentPartner}
               onAddEntry={handleAddLogbookEntry}
             />
           )}

@@ -25,6 +25,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { DEFAULT_PARTNERS } from '@/lib/initialData';
 
 interface MeetingRoomModalProps {
   isOpen: boolean;
@@ -90,16 +91,35 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   const signalingChannelRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Identificación del socio local y socio remoto
-  const partner1 = partners[0] || { name: 'Mario Alberto González', role: 'Finanzas & Legal', isOnline: true };
-  const remotePartner =
-    partners.find((p) => {
-      if (!currentPartner) return true;
-      const isSameId = p.id === currentPartner.id;
-      const isSameEmail = Boolean(p.email && currentPartner.email && p.email.toLowerCase() === currentPartner.email.toLowerCase());
-      const isSameName = Boolean(p.name && currentPartner.name && p.name.toLowerCase() === currentPartner.name.toLowerCase());
-      return !isSameId && !isSameEmail && !isSameName;
-    }) || partners[1] || { name: 'Susy', role: 'Dirección Culinaria & Operaciones', isOnline: false };
+  // Identificación determinista del socio local y socio remoto
+  // En Migalia solo hay dos socios fundadores: Mario (partner-1) y Susy (partner-2).
+  const isMarioLocal = Boolean(
+    currentPartner?.id === 'partner-1' ||
+    currentPartner?.email?.toLowerCase().includes('mario') ||
+    currentPartner?.shortName?.toLowerCase().includes('mario') ||
+    currentPartner?.name?.toLowerCase().includes('mario')
+  );
+
+  const marioPartner =
+    partners.find(
+      (p) =>
+        p.id === 'partner-1' ||
+        p.email?.toLowerCase().includes('mario') ||
+        p.name?.toLowerCase().includes('mario')
+    ) || DEFAULT_PARTNERS[0];
+
+  const susyPartner =
+    partners.find(
+      (p) =>
+        p.id === 'partner-2' ||
+        p.email?.toLowerCase().includes('susana') ||
+        p.email?.toLowerCase().includes('castilla') ||
+        p.shortName?.toLowerCase().includes('susy') ||
+        p.name?.toLowerCase().includes('susana')
+    ) || DEFAULT_PARTNERS[1];
+
+  const localPartner = isMarioLocal ? marioPartner : susyPartner;
+  const remotePartner = isMarioLocal ? susyPartner : marioPartner;
 
   // Limpieza y detención de tracks locales y túnel WebRTC
   const stopAllMediaTracks = useCallback(() => {
@@ -200,22 +220,28 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
 
         // 3. Al recibir video/audio remoto del otro socio
         pc.ontrack = (event) => {
-          console.log('Track remoto recibido:', event.track.kind);
-          if (remoteVideoRef.current && event.streams && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            setConnectionStatus('connected');
+          console.log('[WebRTC] Track remoto recibido:', event.track.kind, event.streams);
+          const stream = event.streams[0] || new MediaStream([event.track]);
+
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = stream;
+            remoteVideoRef.current.play().catch(() => {});
           }
-          if (remoteAudioRef.current && event.streams && event.streams[0]) {
-            remoteAudioRef.current.srcObject = event.streams[0];
+          if (remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = stream;
+            remoteAudioRef.current.play().catch(() => {});
           }
+          setConnectionStatus('connected');
         };
 
-        // Estado del ICE
+        // Estado de conexión ICE
         pc.oniceconnectionstatechange = () => {
-          console.log('Estado ICE:', pc?.iceConnectionState);
+          console.log('[WebRTC] Estado ICE:', pc?.iceConnectionState);
           if (pc?.iceConnectionState === 'connected' || pc?.iceConnectionState === 'completed') {
             setConnectionStatus('connected');
-          } else if (pc?.iceConnectionState === 'disconnected' || pc?.iceConnectionState === 'failed') {
+          } else if (pc?.iceConnectionState === 'failed') {
+            pc?.restartIce?.();
+          } else if (pc?.iceConnectionState === 'disconnected') {
             setConnectionStatus('waiting');
           }
         };
@@ -239,32 +265,57 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
           }
         };
 
+        // Función para enviar una Offer limpia
+        const createAndSendOffer = async () => {
+          try {
+            if (!peerPcSafe()) return;
+            setConnectionStatus('connecting');
+            const offer = await pc!.createOffer();
+            await pc!.setLocalDescription(offer);
+            channel.send({
+              type: 'broadcast',
+              event: 'call_signal',
+              payload: {
+                senderId: myId,
+                type: 'offer',
+                sdp: offer,
+              },
+            });
+          } catch (e) {
+            console.error('[WebRTC] Error creando offer:', e);
+          }
+        };
+
+        const peerPcSafe = () => peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed';
+
         // Escuchar eventos de señalización del otro socio
         channel.on('broadcast', { event: 'call_signal' }, async ({ payload }) => {
           if (!payload || payload.senderId === myId) return; // Ignorar mis propios mensajes
 
           const peerPc = peerConnectionRef.current;
-          if (!peerPc) return;
+          if (!peerPc || peerPc.signalingState === 'closed') return;
 
           try {
             if (payload.type === 'ready') {
-              // El otro socio entró o está listo. Si soy el iniciador, creo Offer
-              setConnectionStatus('connecting');
-              const offer = await peerPc.createOffer();
-              await peerPc.setLocalDescription(offer);
-              channel.send({
-                type: 'broadcast',
-                event: 'call_signal',
-                payload: {
-                  senderId: myId,
-                  type: 'offer',
-                  sdp: offer,
-                },
-              });
+              // Si el otro socio avisa que está listo, iniciamos la oferta WebRTC
+              await createAndSendOffer();
             } else if (payload.type === 'offer') {
-              // Recibí Offer -> creo Answer
-              setConnectionStatus('connecting');
-              await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+              // Manejo de colisión si ambos son 'have-local-offer'
+              if (peerPc.signalingState !== 'stable') {
+                if (myId < payload.senderId) {
+                  // Rollback para aceptar la oferta del otro
+                  await Promise.all([
+                    peerPc.setLocalDescription({ type: 'rollback' } as any),
+                    peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp)),
+                  ]);
+                } else {
+                  // Descartar si tengo prioridad
+                  return;
+                }
+              } else {
+                await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+              }
+
               const answer = await peerPc.createAnswer();
               await peerPc.setLocalDescription(answer);
               channel.send({
@@ -276,31 +327,31 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                   sdp: answer,
                 },
               });
+              setConnectionStatus('connecting');
             } else if (payload.type === 'answer') {
-              // Recibí Answer
-              await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-              setConnectionStatus('connected');
+              if (peerPc.signalingState === 'have-local-offer') {
+                await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                setConnectionStatus('connected');
+              }
             } else if (payload.type === 'candidate' && payload.candidate) {
-              // Recibí ICE Candidate
               try {
                 await peerPc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-              } catch (e) {}
-            } else if (payload.type === 'user_left') {
-              // El socio remoto salió
-              setConnectionStatus('waiting');
-              if (remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = null;
+              } catch (iceErr) {
+                console.warn('[WebRTC] Error agregando ICE Candidate:', iceErr);
               }
+            } else if (payload.type === 'user_left') {
+              setConnectionStatus('waiting');
+              if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+              if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
             }
           } catch (sigErr) {
-            console.error('Error en señalización WebRTC:', sigErr);
+            console.error('[WebRTC] Error en señalización:', sigErr);
           }
         });
 
         // Suscribirse y emitir aviso 'ready'
         channel.subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            // Anunciar que entré a la sala para iniciar el apretón de manos WebRTC
             channel.send({
               type: 'broadcast',
               event: 'call_signal',
@@ -620,10 +671,10 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                 {(!isVideoEnabled || !hasMediaPermission) && (
                   <div className="text-center p-6 text-stone-400">
                     <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-xl font-bold text-amber-400 mx-auto mb-2 border border-stone-700">
-                      {currentPartner?.shortName?.charAt(0) || 'M'}
+                      {localPartner.shortName.charAt(0)}
                     </div>
                     <p className="text-xs font-bold text-stone-200">
-                      {currentPartner?.name || partner1.name}
+                      {localPartner.name}
                     </p>
                     <span className="text-[10px] text-stone-500">
                       {!hasMediaPermission ? 'Cámara desactivada' : 'Video pausado'}
@@ -635,7 +686,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                 <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-xl text-xs flex items-center gap-2 border border-white/10">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span className="font-bold text-white text-[11px]">
-                    {currentPartner?.name || partner1.name} (Tú)
+                    {localPartner.name} (Tú)
                   </span>
                 </div>
               </div>
