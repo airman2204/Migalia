@@ -4,18 +4,18 @@ import { Partner, Task, LogbookEntry, Milestone, Recipe } from '@/types';
 export const DEFAULT_PARTNERS: Partner[] = [
   {
     id: 'partner-1',
-    name: 'Socio 1',
-    shortName: 'Socio 1',
-    email: 'socio1@migaliabakery.com',
-    role: 'Cofundador',
+    name: 'Mario Alberto Gonzalez Cervantes',
+    shortName: 'Mario',
+    email: 'mario.gonzalez@migaliabakery.com',
+    role: 'Administrador',
     avatar: '1',
   },
   {
     id: 'partner-2',
-    name: 'Socio 2',
-    shortName: 'Socio 2',
-    email: 'socio2@migaliabakery.com',
-    role: 'Cofundador',
+    name: 'Susana Castilla Vega',
+    shortName: 'Susy',
+    email: 'castillasusana@migaliabakery.com',
+    role: 'Administrador',
     avatar: '2',
   },
 ];

@@ -47,8 +47,16 @@ import {
 } from '@/types';
 
 export default function Home() {
-  // Autenticación de Socio Activo
-  const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
+  // Autenticación de Socio Activo (leído síncronamente de localStorage)
+  const [currentPartner, setCurrentPartner] = useState<Partner | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('migalia_auth_partner');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return null;
+  });
 
   // Estado sincronizado con Supabase
   const [partners, setPartners] = useState<Partner[]>(DEFAULT_PARTNERS);
@@ -218,10 +226,14 @@ export default function Home() {
   const loadDataFromSupabase = useCallback(async () => {
     try {
       // Sesión local del socio
+      let activeUser = currentPartner;
       const savedUser = localStorage.getItem('migalia_auth_partner');
       if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        setCurrentPartner((prev) => prev || parsed);
+        try {
+          const parsed = JSON.parse(savedUser);
+          activeUser = parsed;
+          setCurrentPartner((prev) => prev || parsed);
+        } catch (e) {}
       }
 
       // Cargar perfiles de socios y verificar presencia vía Heartbeat persistente
@@ -234,7 +246,7 @@ export default function Home() {
         if (hbTask && Array.isArray(hbTask.subtasks)) {
           const now = Date.now();
           hbTask.subtasks.forEach((hb: any) => {
-            if (hb?.lastSeen && (now - Number(hb.lastSeen) < 70000)) { // Activo en los últimos 70 segundos
+            if (hb?.lastSeen && (now - Number(hb.lastSeen) < 90000)) { // Activo en los últimos 90 segundos
               if (hb.partnerId) activeHeartbeats[String(hb.partnerId).toLowerCase()] = Number(hb.lastSeen);
               if (hb.email) activeHeartbeats[String(hb.email).toLowerCase()] = Number(hb.lastSeen);
               if (hb.shortName) activeHeartbeats[String(hb.shortName).toLowerCase()] = Number(hb.lastSeen);
@@ -247,7 +259,10 @@ export default function Home() {
         setPartners((prev) =>
           dbPartners.map((p) => {
             const existing = prev.find((x) => x.id === p.id || (x.email && p.email && x.email.toLowerCase() === p.email.toLowerCase()));
-            const isMe = currentPartner?.id === p.id || (currentPartner?.email && p.email && currentPartner.email.toLowerCase() === p.email.toLowerCase());
+            const isMe =
+              (activeUser?.id && p.id === activeUser.id) ||
+              (activeUser?.email && p.email && p.email.toLowerCase() === activeUser.email.toLowerCase()) ||
+              (activeUser?.shortName && p.short_name && p.short_name.toLowerCase() === activeUser.shortName.toLowerCase());
             
             const hasActiveHb = Boolean(
               activeHeartbeats[p.id?.toLowerCase()] ||
