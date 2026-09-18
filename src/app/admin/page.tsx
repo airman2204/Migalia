@@ -24,6 +24,7 @@ import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { IncomingCallToast } from '@/components/IncomingCallToast';
 import { ChatToast } from '@/components/ChatToast';
 import { TrashBinModal } from '@/components/TrashBinModal';
+import { MigaliaLoader } from '@/components/MigaliaLoader';
 import { soundManager } from '@/lib/soundEffects';
 import { supabase } from '@/lib/supabase';
 
@@ -1414,6 +1415,10 @@ export default function Home() {
     }),
     [displayedTasks, logbook.length, milestones.length, recipes.length, documents.length, trashedItems.length]
   );
+
+  if (!isLoaded) {
+    return <MigaliaLoader label="Iniciando plataforma..." fullscreen={true} />;
+  }
 
   if (isLoaded && !currentPartner) {
     return <LoginScreen partners={partners} onLogin={handleLogin} />;

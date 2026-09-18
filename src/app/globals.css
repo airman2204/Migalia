@@ -48,6 +48,18 @@ body {
   background: #C4BAAA;
 }
 
+@keyframes loading {
+  0% {
+    transform: translateX(-100%) scaleX(0.2);
+  }
+  50% {
+    transform: translateX(0%) scaleX(0.7);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.2);
+  }
+}
+
 /* Reglas de Impresión y Exportación a PDF */
 @media print {
   @page {

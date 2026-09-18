@@ -4,11 +4,12 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import ComingSoonPage from './coming-soon/page';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { MigaliaLoader } from '../components/MigaliaLoader';
 
 // Cargar AdminPage solo en el navegador (Client-side) sin prerenderizado en el servidor
 const AdminPage = dynamic(() => import('./admin/page'), {
   ssr: false,
-  loading: () => <ComingSoonPage />,
+  loading: () => <MigaliaLoader label="Iniciando portal de administración..." fullscreen={true} />,
 });
 
 export default function Home() {
