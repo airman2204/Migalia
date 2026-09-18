@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Recipe, RecipeIngredient } from '@/types';
 import { X, Plus, Trash2, Calculator, Layers, ArrowDown } from 'lucide-react';
 
@@ -10,6 +10,33 @@ interface RecipeModalProps {
   onClose: () => void;
   onSaveRecipe: (recipe: Recipe) => void;
   onDeleteRecipe?: (recipeId: string) => void;
+}
+
+// Convierte valores numéricos, enteros y fracciones como '1/2', '1/4', '3/4', '1 1/2' a decimal para el cálculo de costos
+export function parseFractionToDecimal(val: string | number): number {
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (!val) return 0;
+  const str = String(val).trim();
+  if (!str) return 0;
+
+  // Fracción mixta: ej. "1 1/2"
+  if (str.includes(' ')) {
+    const parts = str.split(' ');
+    const whole = parseFloat(parts[0]) || 0;
+    const fraction = parseFractionToDecimal(parts[1]);
+    return whole + fraction;
+  }
+
+  // Fracción simple: ej. "1/2", "1/4", "3/4"
+  if (str.includes('/')) {
+    const [num, den] = str.split('/').map((s) => parseFloat(s.trim()));
+    if (den && !isNaN(num) && !isNaN(den) && den !== 0) {
+      return num / den;
+    }
+  }
+
+  const parsed = parseFloat(str);
+  return isNaN(parsed) ? 0 : parsed;
 }
 
 export const RecipeModal: React.FC<RecipeModalProps> = ({
@@ -33,7 +60,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     recipe?.ingredients && recipe.ingredients.length > 0
       ? recipe.ingredients
       : [
-          { id: 'ing-' + Date.now() + '-1', name: '', quantity: 0, unit: 'KG', unitCost: 0, totalCost: 0 },
+          { id: 'ing-' + Date.now() + '-1', name: '', quantity: '', unit: 'KG', unitCost: 0, totalCost: 0 },
         ]
   );
 
@@ -45,16 +72,10 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     recipe?.preparation && recipe.preparation.length > 0 ? recipe.preparation : ['']
   );
 
-  // Sincronización fiel cuando se abre el modal o se selecciona otra receta
-  const activeRecipeIdRef = React.useRef<string | undefined>(undefined);
-  const prevIsOpenRef = React.useRef(false);
+  const prevIsOpenRef = useRef(false);
 
-  React.useEffect(() => {
-    const justOpened = isOpen && !prevIsOpenRef.current;
-    const recipeChanged = recipe?.id !== activeRecipeIdRef.current;
-
-    if (isOpen && (justOpened || recipeChanged)) {
-      activeRecipeIdRef.current = recipe?.id;
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
       setTitle(recipe?.title || '');
       setYieldCount(recipe?.yieldCount || '10 PERSONAS');
       setPresentation(recipe?.presentation || 'CAJA GIFTABLE / VITRINA');
@@ -62,13 +83,19 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
       setCategory(recipe?.category || 'Repostería Insignia');
       setNotes(recipe?.notes || '');
       setTitleError(false);
-      setIsSubmitting(false);
 
       setIngredients(
         recipe?.ingredients && recipe.ingredients.length > 0
-          ? recipe.ingredients.map((ing) => ({ ...ing }))
+          ? [...recipe.ingredients]
           : [
-              { id: 'ing-' + Date.now() + '-1', name: '', quantity: 0, unit: 'KG', unitCost: 0, totalCost: 0 },
+              {
+                id: 'ing-' + Date.now() + '-1',
+                name: '',
+                quantity: '',
+                unit: 'KG',
+                unitCost: 0,
+                totalCost: 0,
+              },
             ]
       );
 
@@ -86,7 +113,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     }
 
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, recipe?.id]);
+  }, [isOpen, recipe]);
 
   if (!isOpen) return null;
 
@@ -96,7 +123,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     const current = { ...updated[idx], [field]: val };
 
     if (field === 'quantity' || field === 'unitCost') {
-      const q = field === 'quantity' ? Number(val) || 0 : Number(current.quantity) || 0;
+      const q = field === 'quantity' ? parseFractionToDecimal(val) : parseFractionToDecimal(current.quantity);
       const c = field === 'unitCost' ? Number(val) || 0 : Number(current.unitCost) || 0;
       current.totalCost = Math.round(q * c * 100) / 100;
     }
@@ -108,7 +135,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const handleAddIngredient = () => {
     setIngredients([
       ...ingredients,
-      { id: 'ing-' + Date.now(), name: '', quantity: 0, unit: 'KG', unitCost: 0, totalCost: 0 },
+      { id: 'ing-' + Date.now(), name: '', quantity: '', unit: 'KG', unitCost: 0, totalCost: 0 },
     ]);
   };
 
@@ -363,28 +390,25 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                           </td>
                           <td className="p-2 text-center">
                             <input
-                              type="number"
-                              step="0.001"
-                              min="0"
-                              value={ing.quantity || ''}
+                              type="text"
+                              value={ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : ''}
                               onChange={(e) => handleIngredientChange(idx, 'quantity', e.target.value)}
-                              placeholder="0.250"
-                              className="w-20 text-center text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-1.5 py-1 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
+                              placeholder="Ej. 1/2 o 0.250"
+                              className="w-24 text-center text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-1.5 py-1 text-[#221F1D] focus:outline-none focus:border-[#C59B27] font-medium"
                             />
                           </td>
                           <td className="p-2 text-center">
                             <select
                               value={ing.unit}
                               onChange={(e) => handleIngredientChange(idx, 'unit', e.target.value)}
-                              className="text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-2 py-1 text-[#221F1D] focus:outline-none"
+                              className="text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-2 py-1 text-[#221F1D] focus:outline-none font-medium"
                             >
                               <option value="KG">KG</option>
-                              <option value="GR">GR</option>
                               <option value="LT">LT</option>
-                              <option value="ML">ML</option>
                               <option value="PZA">PZA</option>
-                              <option value="TSP">TSP</option>
+                              <option value="TAZA">TAZA</option>
                               <option value="TBSP">TBSP</option>
+                              <option value="TSP">TSP</option>
                               <option value="C/S">C/S</option>
                             </select>
                           </td>

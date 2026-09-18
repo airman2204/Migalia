@@ -93,8 +93,14 @@ export const RecipePrintSheet: React.FC<RecipePrintSheetProps> = ({ recipe }) =>
                   <td className="p-1 pl-3 border-r border-black font-sans font-medium uppercase text-[10.5px]">
                     {ing.name}
                   </td>
-                  <td className="p-1 border-r border-black text-center">
-                    {ing.quantity ? Number(ing.quantity).toFixed(3) : '-'}
+                  <td className="p-1 border-r border-black text-center font-mono">
+                    {ing.quantity !== undefined && ing.quantity !== null && String(ing.quantity).trim() !== ''
+                      ? typeof ing.quantity === 'number'
+                        ? Number.isInteger(ing.quantity)
+                          ? ing.quantity
+                          : Number(ing.quantity).toFixed(3)
+                        : ing.quantity
+                      : '-'}
                   </td>
                   <td className="p-1 border-r border-black text-center font-sans">
                     {ing.unit}
