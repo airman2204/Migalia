@@ -313,56 +313,24 @@ export default function Home() {
 
         const dbRecipeList: Recipe[] = rawDbRecipeList.map(normalizeRecipe);
         
-        setRecipes((prev) => {
-          const recipeMap = new Map<string, Recipe>();
-          // 1. Iniciales / locales existentes
-          prev.forEach((r) => { if (r?.id) recipeMap.set(r.id, normalizeRecipe(r)); });
-          // 2. LocalStorage por si hay recetas guardadas antes de recargar
+        if (recipesMeta) {
+          // Si existe el catálogo en la nube, la nube es la fuente oficial
+          setRecipes(dbRecipeList);
+          try {
+            localStorage.setItem('migalia_recipes', JSON.stringify(dbRecipeList));
+          } catch (e) {}
+        } else {
+          // Solo si la nube no tiene registro aún, intentar recuperar de localStorage
           try {
             const local = localStorage.getItem('migalia_recipes');
             if (local) {
               const parsed: any[] = JSON.parse(local);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((r) => { if (r?.id) recipeMap.set(r.id, normalizeRecipe(r)); });
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setRecipes(parsed.map(normalizeRecipe));
               }
             }
           } catch (e) {}
-          // 3. Nube (Supabase)
-          dbRecipeList.forEach((r) => { if (r?.id) recipeMap.set(r.id, r); });
-
-          const merged = Array.from(recipeMap.values());
-          try {
-            localStorage.setItem('migalia_recipes', JSON.stringify(merged));
-          } catch (e) {}
-
-          // Si hay recetas locales que no estaban en la base de datos (por ejemplo, creadas offline o en sesión no sincronizada),
-          // auto-sincronizar hacia Supabase para auto-reparar el catálogo.
-          if (merged.length > dbRecipeList.length) {
-            (async () => {
-              try {
-                await supabase.from('tasks').upsert({
-                  id: 'meta-recipes-catalog',
-                  title: 'Catálogo de Recetas y Fichas Técnicas',
-                  description: 'Recetas sincronizadas en la nube',
-                  status: 'done',
-                  priority: 'medium',
-                  assigned_to: currentPartner?.id || 'partner-2',
-                  category: 'Operaciones',
-                  subtasks: merged,
-                });
-                supabase.channel('migalia_presence').send({
-                  type: 'broadcast',
-                  event: 'data_changed',
-                  payload: { entity: 'recipes' },
-                });
-              } catch (err) {
-                console.error('Auto-sync recipes error:', err);
-              }
-            })();
-          }
-
-          return merged;
-        });
+        }
         } // end if (!isSavingRecipeRef.current)
 
         // Extraer documentos compartidos si existen en la nube
@@ -1009,11 +977,12 @@ export default function Home() {
 
 
   const handleDeleteRecipe = async (recipeId: string) => {
+    isSavingRecipeRef.current = true;
     const updated = recipes.filter((r) => r.id !== recipeId);
     setRecipes(updated);
     try {
       localStorage.setItem('migalia_recipes', JSON.stringify(updated));
-      await supabase.from('tasks').upsert({
+      const { error } = await supabase.from('tasks').upsert({
         id: 'meta-recipes-catalog',
         title: 'Catálogo de Recetas y Fichas Técnicas',
         description: 'Recetas sincronizadas en la nube',
@@ -1023,13 +992,15 @@ export default function Home() {
         category: 'Operaciones',
         subtasks: updated,
       });
-      supabase.channel('migalia_presence').send({
-        type: 'broadcast',
-        event: 'data_changed',
-        payload: { entity: 'recipes' },
-      });
+      if (!error) {
+        sendBroadcast('data_changed', { entity: 'recipes' });
+      }
     } catch (e) {
       console.error('Error al eliminar receta:', e);
+    } finally {
+      setTimeout(() => {
+        isSavingRecipeRef.current = false;
+      }, 2000);
     }
   };
 

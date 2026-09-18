@@ -19,14 +19,14 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   onSaveRecipe,
   onDeleteRecipe,
 }) => {
-  if (!isOpen) return null;
-
   const [title, setTitle] = useState(recipe?.title || '');
   const [yieldCount, setYieldCount] = useState(recipe?.yieldCount || '10 PERSONAS');
   const [presentation, setPresentation] = useState(recipe?.presentation || 'CAJA GIFTABLE / VITRINA');
   const [standardizedFor, setStandardizedFor] = useState(recipe?.standardizedFor || 'Recetario estandarizado y costeado');
   const [category, setCategory] = useState(recipe?.category || 'Repostería Insignia');
   const [notes, setNotes] = useState(recipe?.notes || '');
+  const [titleError, setTitleError] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Ingredientes
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(
@@ -44,6 +44,51 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const [preparation, setPreparation] = useState<string[]>(
     recipe?.preparation && recipe.preparation.length > 0 ? recipe.preparation : ['']
   );
+
+  // Sincronización fiel cuando se abre el modal o se selecciona otra receta
+  const activeRecipeIdRef = React.useRef<string | undefined>(undefined);
+  const prevIsOpenRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const justOpened = isOpen && !prevIsOpenRef.current;
+    const recipeChanged = recipe?.id !== activeRecipeIdRef.current;
+
+    if (isOpen && (justOpened || recipeChanged)) {
+      activeRecipeIdRef.current = recipe?.id;
+      setTitle(recipe?.title || '');
+      setYieldCount(recipe?.yieldCount || '10 PERSONAS');
+      setPresentation(recipe?.presentation || 'CAJA GIFTABLE / VITRINA');
+      setStandardizedFor(recipe?.standardizedFor || 'Recetario estandarizado y costeado');
+      setCategory(recipe?.category || 'Repostería Insignia');
+      setNotes(recipe?.notes || '');
+      setTitleError(false);
+      setIsSubmitting(false);
+
+      setIngredients(
+        recipe?.ingredients && recipe.ingredients.length > 0
+          ? recipe.ingredients.map((ing) => ({ ...ing }))
+          : [
+              { id: 'ing-' + Date.now() + '-1', name: '', quantity: 0, unit: 'KG', unitCost: 0, totalCost: 0 },
+            ]
+      );
+
+      setMiseEnPlace(
+        recipe?.miseEnPlace && recipe.miseEnPlace.length > 0
+          ? [...recipe.miseEnPlace]
+          : ['']
+      );
+
+      setPreparation(
+        recipe?.preparation && recipe.preparation.length > 0
+          ? [...recipe.preparation]
+          : ['']
+      );
+    }
+
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, recipe?.id]);
+
+  if (!isOpen) return null;
 
   // Manejo de Ingredientes
   const handleIngredientChange = (idx: number, field: keyof RecipeIngredient, val: any) => {
@@ -103,25 +148,35 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     .filter((ing) => !ing.isSubrecipeTitle)
     .reduce((sum, ing) => sum + (Number(ing.totalCost) || 0), 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      setTitleError(true);
+      return;
+    }
 
-    onSaveRecipe({
-      id: recipe?.id || 'rec-' + Date.now(),
-      title: title.toUpperCase(),
-      yieldCount: yieldCount.toUpperCase(),
-      presentation: presentation.toUpperCase(),
-      standardizedFor,
-      category,
-      ingredients: ingredients.filter((ing) => ing.name.trim() !== ''),
-      miseEnPlace: miseEnPlace.filter((m) => m.trim() !== ''),
-      preparation: preparation.filter((p) => p.trim() !== ''),
-      notes,
-      createdAt: recipe?.createdAt || new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-    });
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onSaveRecipe({
+        id: recipe?.id || 'rec-' + Date.now(),
+        title: title.trim().toUpperCase(),
+        yieldCount: yieldCount.trim().toUpperCase(),
+        presentation: presentation.trim().toUpperCase(),
+        standardizedFor,
+        category,
+        ingredients: ingredients.filter((ing) => ing.name.trim() !== ''),
+        miseEnPlace: miseEnPlace.filter((m) => m.trim() !== ''),
+        preparation: preparation.filter((p) => p.trim() !== ''),
+        notes,
+        createdAt: recipe?.createdAt || new Date().toISOString().split('T')[0],
+        updatedAt: new Date().toISOString().split('T')[0],
+      });
+      onClose();
+    } catch (err) {
+      console.error('Error submitting recipe:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -151,16 +206,24 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#FAF8F5] p-4 rounded-2xl border border-[#E6DFD5]">
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-[#221F1D] uppercase mb-1">
-                Nombre de la Receta
+                Nombre de la Receta <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  if (e.target.value.trim()) setTitleError(false);
+                }}
                 placeholder="Ej. COOKIE FRIES CON DIP DE MARACUYÁ"
-                className="w-full text-xs font-semibold bg-[#FFFFFF] border border-[#E6DFD5] rounded-xl px-3 py-2 text-[#221F1D] uppercase focus:outline-none focus:border-[#C59B27]"
+                className={`w-full text-xs font-semibold bg-[#FFFFFF] border rounded-xl px-3 py-2 text-[#221F1D] uppercase focus:outline-none ${
+                  titleError ? 'border-red-500 ring-2 ring-red-200' : 'border-[#E6DFD5] focus:border-[#C59B27]'
+                }`}
                 required
               />
+              {titleError && (
+                <p className="text-[10px] text-red-600 font-bold mt-1">Por favor escribe el nombre de la receta.</p>
+              )}
             </div>
 
             <div>
@@ -482,9 +545,10 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="text-xs font-bold bg-[#221F1D] text-[#F8F6F0] px-6 py-2 rounded-xl hover:bg-[#34302C] shadow-xs"
+                disabled={isSubmitting}
+                className="text-xs font-bold bg-[#221F1D] text-[#F8F6F0] px-6 py-2 rounded-xl hover:bg-[#34302C] shadow-xs disabled:opacity-50 disabled:cursor-wait"
               >
-                Guardar Ficha
+                {isSubmitting ? 'Guardando...' : 'Guardar Ficha'}
               </button>
             </div>
           </div>
