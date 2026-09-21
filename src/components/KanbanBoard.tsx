@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Task, Partner, TaskStatus } from '@/types';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Clock, CheckSquare, User, GripVertical, Plus, AlertOctagon, Filter, ShieldAlert } from 'lucide-react';
+import { Clock, CheckSquare, User, GripVertical, Plus, AlertOctagon, Filter, ShieldAlert, ShoppingBag, FolderKanban, Sparkles } from 'lucide-react';
 import { analyzeTaskDate, getOverdueMetrics } from '@/lib/taskImpactUtils';
 
 interface KanbanBoardProps {
@@ -11,9 +11,10 @@ interface KanbanBoardProps {
   partners: Partner[];
   onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
   onSelectTask: (task: Task) => void;
+  initialMode?: 'tasks' | 'orders';
 }
 
-const COLUMNS: { id: TaskStatus; label: string; dotColor: string }[] = [
+const TASK_COLUMNS: { id: TaskStatus; label: string; dotColor: string }[] = [
   { id: 'backlog', label: 'Ideas & Por Definir', dotColor: 'bg-[#A39E93]' },
   { id: 'todo', label: 'Por Hacer', dotColor: 'bg-[#8C6239]' },
   { id: 'in_progress', label: 'En Proceso', dotColor: 'bg-[#C59B27]' },
@@ -21,14 +22,46 @@ const COLUMNS: { id: TaskStatus; label: string; dotColor: string }[] = [
   { id: 'done', label: 'Completado', dotColor: 'bg-[#4A6B53]' },
 ];
 
+const ORDER_COLUMNS: { id: TaskStatus; label: string; dotColor: string; description: string }[] = [
+  { id: 'backlog', label: '1. Cotizaciones & Prospectos', dotColor: 'bg-stone-400', description: 'Inquietudes de Instagram sin anticipo' },
+  { id: 'todo', label: '2. Anticipo Confirmado', dotColor: 'bg-amber-600', description: '50% pagado, por programar horneado' },
+  { id: 'in_progress', label: '3. En Horno & Producción', dotColor: 'bg-orange-500', description: 'Elaboración de galletas y empaque' },
+  { id: 'review', label: '4. Listo para Entrega / Envío', dotColor: 'bg-purple-600', description: 'Empacado en vitrina o ruta' },
+  { id: 'done', label: '5. Entregado & Liquidado', dotColor: 'bg-emerald-600', description: 'Pedido concluido 100%' },
+];
+
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   tasks,
   partners,
   onStatusChange,
   onSelectTask,
+  initialMode = 'tasks',
 }) => {
+  const [boardMode, setBoardMode] = useState<'tasks' | 'orders'>(initialMode);
   const [filterOnlyOverdue, setFilterOnlyOverdue] = useState(false);
-  const overdueMetrics = getOverdueMetrics(tasks);
+
+  // Separación estricta de tareas vs pedidos
+  const isOrderTask = (t: Task) => {
+    const cat = (t.category || '').toLowerCase();
+    const title = (t.title || '').toLowerCase();
+    return (
+      cat.includes('pedido') ||
+      cat.includes('evento') ||
+      cat.includes('ventas') ||
+      title.startsWith('pedido') ||
+      title.startsWith('evento')
+    );
+  };
+
+  const displayedList = tasks.filter((t) =>
+    boardMode === 'orders' ? isOrderTask(t) : !isOrderTask(t)
+  );
+
+  const orderTasksCount = tasks.filter(isOrderTask).length;
+  const standardTasksCount = tasks.filter((t) => !isOrderTask(t)).length;
+
+  const currentColumns = boardMode === 'orders' ? ORDER_COLUMNS : TASK_COLUMNS;
+  const overdueMetrics = getOverdueMetrics(displayedList);
 
   const getPartner = (id: string) => partners.find((p) => p.id === id);
 
@@ -76,6 +109,58 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Selector de Tablero: Actividades de Proyecto vs Tablero de Pedidos */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-[#E6DFD5] shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-[#F8F6F0] rounded-xl border border-[#E6DFD5]">
+          <button
+            onClick={() => setBoardMode('tasks')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              boardMode === 'tasks'
+                ? 'bg-[#221F1D] text-amber-400 shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+            }`}
+          >
+            <FolderKanban className="w-3.5 h-3.5" />
+            <span>Actividades de Proyecto</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              boardMode === 'tasks' ? 'bg-stone-800 text-amber-300' : 'bg-stone-200 text-stone-600'
+            }`}>
+              {standardTasksCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setBoardMode('orders')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              boardMode === 'orders'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-stone-600 hover:text-amber-800 hover:bg-amber-100/60'
+            }`}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>Tablero de Pedidos & Eventos</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              boardMode === 'orders' ? 'bg-amber-800 text-white' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {orderTasksCount}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs text-[#6E665D] flex items-center gap-2">
+          {boardMode === 'orders' ? (
+            <span className="inline-flex items-center gap-1.5 font-medium text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+              <Sparkles className="w-3 h-3 text-amber-600" />
+              Flujo de Producción: Cotizado ➔ Horneado ➔ Entrega
+            </span>
+          ) : (
+            <span className="text-stone-500">
+              Flujo de Obra, Legal, Recetas & Equipamiento
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Banner de Impacto y Alerta de Fechas Límite */}
       {overdueMetrics.overdueCount > 0 ? (
         <div className="bg-gradient-to-r from-red-50 via-[#FFF7ED] to-amber-50 border border-red-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
@@ -86,18 +171,18 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-red-800">
-                  {overdueMetrics.overdueCount} Actividades Vencidas · Alerta Crítica
+                  {overdueMetrics.overdueCount} {boardMode === 'orders' ? 'Pedidos Demorados' : 'Actividades Vencidas'} · Alerta Crítica
                 </h4>
                 <span className="text-[10px] bg-red-600 text-white font-bold px-2 py-0.5 rounded-full">
                   +{overdueMetrics.maxDaysOverdue}d de desvío máx.
                 </span>
               </div>
               <p className="text-xs text-[#6E665D] mt-0.5">
-                Impacto en presupuesto afectado:{' '}
+                Monto en riesgo:{' '}
                 <strong className="text-red-700">
                   ${overdueMetrics.totalFinancialImpact.toLocaleString('es-MX')} MXN
                 </strong>
-                . Requieren reprogramación o destrabe inmediato.
+                . Requieren atención inmediata.
               </p>
             </div>
           </div>
@@ -111,45 +196,52 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             }`}
           >
             <Filter className="w-3.5 h-3.5" />
-            {filterOnlyOverdue ? 'Ver todas las actividades' : 'Aislar solo Vencidas'}
+            {filterOnlyOverdue ? 'Ver todos' : 'Aislar solo Vencidos'}
           </button>
         </div>
       ) : (
         <div className="bg-[#F8F6F0] border border-[#E6DFD5] rounded-xl px-4 py-2 text-xs text-[#6E665D] flex items-center justify-between">
           <span className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Cronograma en tiempo: No hay actividades vencidas pendientes.
+            {boardMode === 'orders' ? 'Producción de pedidos al día y en tiempo.' : 'Cronograma en tiempo: No hay actividades vencidas pendientes.'}
           </span>
         </div>
       )}
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 overflow-x-auto pb-6">
-          {COLUMNS.map((col) => {
-            let colTasks = tasks.filter((t) => t.status === col.id);
+          {currentColumns.map((col) => {
+            let colTasks = displayedList.filter((t) => t.status === col.id);
             if (filterOnlyOverdue) {
               colTasks = colTasks.filter((t) => analyzeTaskDate(t).status === 'overdue');
             }
 
-          return (
-            <div
-              key={col.id}
-              className="flex flex-col bg-[#F2EFE9]/70 border border-[#E6DFD5] rounded-2xl p-3 min-w-[260px] min-h-[480px]"
-            >
-              {/* Encabezado de Columna */}
-              <div className="flex items-center justify-between mb-3 px-1">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
-                  <h3 className="text-xs font-bold text-[#221F1D] tracking-wide">
-                    {col.label}
-                  </h3>
+            const colDesc = 'description' in col ? (col as any).description : null;
+
+            return (
+              <div
+                key={col.id}
+                className="flex flex-col bg-[#F2EFE9]/70 border border-[#E6DFD5] rounded-2xl p-3 min-w-[260px] min-h-[480px]"
+              >
+                {/* Encabezado de Columna */}
+                <div className="mb-3 px-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
+                      <h3 className="text-xs font-bold text-[#221F1D] tracking-wide">
+                        {col.label}
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-bold text-[#6E665D] bg-[#E6DFD5] px-2 py-0.5 rounded-full">
+                      {colTasks.length}
+                    </span>
+                  </div>
+                  {colDesc && (
+                    <p className="text-[10px] text-stone-500 leading-tight">
+                      {colDesc}
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-[#6E665D] bg-[#E6DFD5] px-2 py-0.5 rounded-full">
-                    {colTasks.length}
-                  </span>
-                </div>
-              </div>
 
               {/* Zona Droppable */}
               <Droppable droppableId={col.id}>

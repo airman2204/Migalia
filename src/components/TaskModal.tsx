@@ -14,6 +14,7 @@ interface TaskModalProps {
 }
 
 const CATEGORIES: string[] = [
+  'Pedidos & Eventos',
   'Legal & Permisos',
   'Finanzas',
   'Recetas & Menú',

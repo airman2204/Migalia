@@ -1646,7 +1646,7 @@ export default function Home() {
       id: 'task-' + Date.now(),
       title: newTaskTitle,
       description: newTaskDesc,
-      category: 'Ventas & Eventos',
+      category: 'Pedidos & Eventos',
       assignedTo: conversation.assignedTo || currentPartner?.id || 'partner-1',
       priority: conversation.status === 'order_confirmed' ? 'urgent' : 'high',
       status: 'todo',
