@@ -111,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-6 h-6 rounded-lg bg-linear-to-tr from-[#833AB4] via-[#FD1D1D] to-[#FCB045] flex items-center justify-center text-white shrink-0 shadow-2xs">
               <MessageCircleHeart className="w-3.5 h-3.5" />
             </div>
-            <span className="font-medium text-xs">Atención a Clientes</span>
+            <span className="font-medium text-xs">Clientes instagram</span>
           </div>
           {Boolean(counts.customers && counts.customers > 0) && (
             <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-pink-100 text-pink-700 border border-pink-200">

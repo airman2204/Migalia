@@ -1640,7 +1640,7 @@ export default function Home() {
 
   const handleConvertCustomerToTask = (conversation: CustomerConversation) => {
     const newTaskTitle = `Pedido / Evento: ${conversation.customerName} (${conversation.customerHandle})`;
-    const newTaskDesc = `Requerimiento generado desde Atención a Clientes (Instagram DM):\n\n${conversation.notes || conversation.lastMessage}\n\nUsuario Instagram: ${conversation.customerHandle}`;
+    const newTaskDesc = `Requerimiento generado desde Atención a Clientes (Instagram DM):\n\n${conversation.notes || conversation.lastMessage}\n\nCliente: ${conversation.customerName}\nUsuario Instagram: ${conversation.customerHandle}`;
     
     const newTask: Task = {
       id: 'task-' + Date.now(),
@@ -1663,8 +1663,8 @@ export default function Home() {
       ],
     };
 
-    handleSaveTask(newTask);
-    setActiveTab('kanban');
+    setSelectedTask(newTask);
+    setIsModalOpen(true);
     soundManager.playChatPop?.();
   };
 
@@ -1892,7 +1892,6 @@ export default function Home() {
               onSendMessage={handleSendCustomerMessage}
               onUpdateConversationStatus={handleUpdateCustomerStatus}
               onConvertToTask={handleConvertCustomerToTask}
-              onNewConversation={handleNewCustomerConversation}
               onClearDemoData={handleClearCustomerDemoData}
             />
           )}

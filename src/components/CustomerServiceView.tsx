@@ -63,7 +63,6 @@ interface CustomerServiceViewProps {
     quotedAmount?: number
   ) => void;
   onConvertToTask: (conversation: CustomerConversation) => void;
-  onNewConversation?: (newConv: CustomerConversation, initialMsg?: string) => void;
   onClearDemoData?: () => void;
 }
 
@@ -74,7 +73,6 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
   onSendMessage,
   onUpdateConversationStatus,
   onConvertToTask,
-  onNewConversation,
   onClearDemoData,
 }) => {
   const [selectedId, setSelectedId] = useState<string>(conversations[0]?.id || '');
@@ -83,15 +81,7 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
   const [newMessageText, setNewMessageText] = useState('');
   const [editingNotes, setEditingNotes] = useState('');
   const [editingQuote, setEditingQuote] = useState<string>('');
-  const [showNewModal, setShowNewModal] = useState(false);
-  const [showConnectModal, setShowConnectModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-
-  // Nuevo prospecto / chat manual
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerHandle, setNewCustomerHandle] = useState('');
-  const [newCategory, setNewCategory] = useState<CustomerConversation['category']>('Cotización de Pastel');
-  const [newInitialMsg, setNewInitialMsg] = useState('');
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
@@ -183,40 +173,6 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
     );
   };
 
-  const handleCreateManualChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCustomerName.trim() || !newCustomerHandle.trim()) return;
-
-    const newId = `conv-${Date.now()}`;
-    const cleanHandle = newCustomerHandle.startsWith('@')
-      ? newCustomerHandle.trim()
-      : `@${newCustomerHandle.trim()}`;
-
-    const newConv: CustomerConversation = {
-      id: newId,
-      platform: 'instagram',
-      customerHandle: cleanHandle,
-      customerName: newCustomerName.trim(),
-      lastMessage: newInitialMsg.trim() || 'Conversación iniciada desde el panel.',
-      lastMessageTime: 'Ahora',
-      unreadCount: 0,
-      status: 'pending',
-      category: newCategory,
-      assignedTo: currentPartner?.id || 'partner-1',
-      createdAt: new Date().toISOString().split('T')[0],
-      tags: [newCategory || 'General', 'Instagram'],
-    };
-
-    if (onNewConversation) {
-      onNewConversation(newConv, newInitialMsg.trim());
-    }
-    setSelectedId(newId);
-    setShowNewModal(false);
-    setNewCustomerName('');
-    setNewCustomerHandle('');
-    setNewInitialMsg('');
-  };
-
   const simulateSync = () => {
     setIsSyncing(true);
     setTimeout(() => {
@@ -250,17 +206,9 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
             <InstagramIcon className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold font-serif text-[#221F1D]">
-                Atención a Clientes & Mensajería
-              </h1>
-              <span className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 uppercase border border-pink-200">
-                Instagram DMs · CRM
-              </span>
-            </div>
-            <p className="text-xs text-[#6E665D]">
-              Monitorea prospectos, cotiza eventos y convierte mensajes de Instagram en pedidos para el Kanban de Migalia.
-            </p>
+            <h1 className="text-lg font-bold font-serif text-[#221F1D]">
+              Clientes instagram
+            </h1>
           </div>
         </div>
 
@@ -278,15 +226,6 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
           </a>
 
           <button
-            onClick={() => setShowConnectModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-pink-300 bg-pink-50 hover:bg-pink-100 text-pink-800 transition-colors"
-            title="Vincular cuenta oficial de Instagram Direct (Meta API)"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-pink-600" />
-            <span>Vincular Instagram Real</span>
-          </button>
-
-          <button
             onClick={simulateSync}
             disabled={isSyncing}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-[#E6DFD5] bg-[#F8F6F0] hover:bg-stone-200 text-[#221F1D] transition-colors"
@@ -294,14 +233,6 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-pink-600' : 'text-stone-600'}`} />
             <span>{isSyncing ? 'Sincronizando...' : 'Actualizar DMs'}</span>
-          </button>
-
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#221F1D] text-amber-400 hover:bg-stone-800 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Registrar Prospecto</span>
           </button>
 
           {conversations.length > 0 && onClearDemoData && (
@@ -391,13 +322,6 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
                 <p className="text-[11px] text-stone-500 max-w-xs leading-relaxed">
                   Cuando tus clientes envíen un mensaje directo (DM) a tu cuenta de Instagram oficial, aparecerán aquí automáticamente.
                 </p>
-                <button
-                  onClick={() => setShowNewModal(true)}
-                  className="mt-3 px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-900 text-amber-400 hover:bg-stone-800 transition-colors inline-flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Registrar Primer Prospecto Manual</span>
-                </button>
               </div>
             ) : (
               filteredConversations.map((conv) => {
@@ -470,7 +394,7 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
           {activeConversation ? (
             <>
               {/* Header de la conversación */}
-              <div className="p-3.5 border-b border-[#E6DFD5] flex items-center justify-between bg-[#FDFCFA] shrink-0">
+              <div className="p-3.5 border-b border-[#E6DFD5] flex items-center justify-between bg-[#FDFCFA] shrink-0 gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative shrink-0">
                     {activeConversation.customerAvatar ? (
@@ -501,7 +425,16 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => onConvertToTask(activeConversation)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#221F1D] text-amber-400 hover:bg-stone-800 transition-colors shadow-xs"
+                    title="Levantar pedido directo con los datos de este cliente"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Levantar Pedido</span>
+                  </button>
+
                   <select
                     value={activeConversation.status}
                     onChange={(e) =>
@@ -563,30 +496,13 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
                         </div>
                         {isAgent && (
                           <div className="flex items-center gap-1 mt-0.5 px-1 text-[10px] text-stone-400">
-                            <CheckCheck className="w-3 h-3 text-amber-600" />
-                            <span>Entregado</span>
+                            <span>Enviado por {msg.senderName}</span>
                           </div>
                         )}
                       </div>
                     );
                   })
                 )}
-              </div>
-
-              {/* Respuestas rápidas integradas */}
-              <div className="px-3 pt-2 pb-1 border-t border-[#E6DFD5] bg-[#FDFCFA] overflow-x-auto scrollbar-none flex items-center gap-1.5 shrink-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1 shrink-0">
-                  <Sparkles className="w-3 h-3 text-amber-600" /> Respuestas Rápidas:
-                </span>
-                {quickReplies.map((qr, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleApplyQuickReply(qr.text)}
-                    className="text-[10px] font-medium px-2 py-1 rounded-md bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 border border-stone-200 transition-colors shrink-0"
-                  >
-                    {qr.title}
-                  </button>
-                ))}
               </div>
 
               {/* Barra de envío de mensaje */}
@@ -656,18 +572,18 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
                 <div className="flex items-center gap-2">
                   <ShoppingBag className="w-4 h-4 text-amber-700" />
                   <h4 className="text-xs font-bold text-amber-900">
-                    Convertir en Tarea / Pedido
+                    Levantar Pedido
                   </h4>
                 </div>
                 <p className="text-[11px] text-amber-800 leading-snug">
-                  Crea automáticamente una tarjeta en el tablero <strong>Kanban</strong> con los requerimientos y cotización de este cliente.
+                  Jala automáticamente los datos y requerimientos de este cliente para registrarlos en el tablero exclusivo de <strong>Pedidos & Eventos</strong>.
                 </p>
                 <button
                   onClick={() => onConvertToTask(activeConversation)}
                   className="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Crear Pedido en Kanban</span>
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Levantar Pedido</span>
                 </button>
               </div>
 
@@ -734,196 +650,6 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
           )}
         </div>
       </div>
-
-      {/* MODAL REGISTRAR PROSPECTO O NUEVO CHAT */}
-      {showNewModal && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl border border-[#E6DFD5] shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E6DFD5] pb-3">
-              <h3 className="text-sm font-bold font-serif text-[#221F1D] flex items-center gap-2">
-                <InstagramIcon className="w-4 h-4 text-pink-600" />
-                <span>Registrar Prospecto de Instagram / Mensajería</span>
-              </h3>
-              <button
-                onClick={() => setShowNewModal(false)}
-                className="text-stone-400 hover:text-stone-600 text-lg leading-none"
-              >
-                &times;
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateManualChat} className="space-y-3">
-              <div>
-                <label className="text-[11px] font-semibold text-stone-700 block mb-1">
-                  Nombre del Cliente
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newCustomerName}
-                  onChange={(e) => setNewCustomerName(e.target.value)}
-                  placeholder="Ej. Sofía Montes"
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-[#E6DFD5] bg-[#F8F6F0] focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold text-stone-700 block mb-1">
-                  Usuario de Instagram (@handle)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-xs font-mono text-stone-400">@</span>
-                  <input
-                    type="text"
-                    required
-                    value={newCustomerHandle.replace(/^@/, '')}
-                    onChange={(e) => setNewCustomerHandle(e.target.value)}
-                    placeholder="sofia_montes"
-                    className="w-full text-xs pl-7 pr-3 py-2 rounded-xl border border-[#E6DFD5] bg-[#F8F6F0] focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold text-stone-700 block mb-1">
-                  Tipo de Inquietud / Categoría
-                </label>
-                <select
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value as any)}
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-[#E6DFD5] bg-[#F8F6F0] focus:outline-hidden"
-                >
-                  <option value="Cotización de Pastel">Cotización de Pastel</option>
-                  <option value="Pedido Evento">Pedido Evento</option>
-                  <option value="Duda Menú & Alérgenos">Duda Menú & Alérgenos</option>
-                  <option value="Horarios & Ubicación">Horarios & Ubicación</option>
-                  <option value="General">General</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold text-stone-700 block mb-1">
-                  Mensaje Inicial o Petición por Instagram
-                </label>
-                <textarea
-                  rows={3}
-                  value={newInitialMsg}
-                  onChange={(e) => setNewInitialMsg(e.target.value)}
-                  placeholder="Mensaje recibido en el DM de @migaliab..."
-                  className="w-full text-xs p-3 rounded-xl border border-[#E6DFD5] bg-[#F8F6F0] focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6DFD5]">
-                <button
-                  type="button"
-                  onClick={() => setShowNewModal(false)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-[#221F1D] text-amber-400 hover:bg-stone-800 shadow-xs"
-                >
-                  Registrar e Iniciar Chat
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL CÓMO VINCULAR INSTAGRAM REAL (@migaliab) */}
-      {showConnectModal && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl border border-[#E6DFD5] shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E6DFD5] pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-linear-to-tr from-[#833AB4] via-[#FD1D1D] to-[#FCB045] flex items-center justify-center text-white">
-                  <InstagramIcon className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold font-serif text-[#221F1D]">
-                    Conexión Directa con Instagram Oficial
-                  </h3>
-                  <a
-                    href="https://www.instagram.com/migaliab/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-pink-700 hover:underline flex items-center gap-1 font-mono font-medium"
-                  >
-                    <span>@migaliab</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowConnectModal(false)}
-                className="text-stone-400 hover:text-stone-600 text-lg leading-none"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs text-stone-700 leading-relaxed">
-              <p className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-amber-900">
-                Para que los DMs que lleguen a <strong>@migaliab</strong> aparezcan automáticamente aquí en tiempo real, Meta (Facebook/Instagram) requiere autorizar la <strong>Instagram Graph API</strong>.
-              </p>
-
-              <h4 className="font-bold text-[#221F1D] text-xs uppercase tracking-wider">
-                Pasos de Conexión Oficial (Meta for Developers):
-              </h4>
-
-              <ol className="space-y-2 list-decimal list-inside text-stone-600">
-                <li className="p-2 rounded-lg bg-[#F8F6F0]">
-                  <strong>1. Tipo de cuenta:</strong> Verifica que <a href="https://www.instagram.com/migaliab/" target="_blank" rel="noopener noreferrer" className="text-pink-700 font-semibold underline">@migaliab</a> esté configurada como cuenta <strong>Profesional (Business / Creador)</strong> en la app de Instagram (Configuración &gt; Tipo de cuenta).
-                </li>
-                <li className="p-2 rounded-lg bg-[#F8F6F0]">
-                  <strong>2. Conectar con Facebook Page:</strong> Vincular la cuenta de Instagram con la Página de Facebook oficial de Migalia en Meta Business Suite.
-                </li>
-                <li className="p-2 rounded-lg bg-[#F8F6F0]">
-                  <strong>3. Habilitar Acceso a Mensajes:</strong> En la app de Instagram en tu teléfono:
-                  <div className="mt-1 text-[11px] text-stone-500 font-sans">
-                    Configuración &gt; Mensajes y respuestas a historias &gt; Controles de mensajes &gt; Activar <strong>"Permitir acceso a los mensajes"</strong>.
-                  </div>
-                </li>
-                <li className="p-2 rounded-lg bg-[#F8F6F0]">
-                  <strong>4. Meta Webhook / Token:</strong> Con tu App de <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline font-semibold">developers.facebook.com</a>, suscríbete al webhook de <code>messages</code> y <code>messaging_postbacks</code>.
-                </li>
-              </ol>
-
-              <div className="p-3 bg-stone-50 rounded-xl border border-stone-200">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-semibold text-stone-800 text-[11px]">¿Quieres que lo configuremos directo vía Webhook?</span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">Listo en Backend</span>
-                </div>
-                <p className="text-[11px] text-stone-500">
-                  El panel ya tiene la estructura lista para recibir los mensajes entrantes vía webhook en <code>/api/instagram/webhook</code> y guardarlos directo en Supabase.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-[#E6DFD5]">
-              <a
-                href="https://www.instagram.com/direct/inbox/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-semibold text-pink-700 hover:underline flex items-center gap-1"
-              >
-                <span>Abrir Instagram Web Inbox</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-              <button
-                onClick={() => setShowConnectModal(false)}
-                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-[#221F1D] text-amber-400 hover:bg-stone-800 shadow-xs"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
