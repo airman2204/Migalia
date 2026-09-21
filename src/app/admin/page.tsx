@@ -1640,7 +1640,7 @@ export default function Home() {
 
   const handleConvertCustomerToTask = (conversation: CustomerConversation) => {
     const newTaskTitle = `Pedido / Evento: ${conversation.customerName} (${conversation.customerHandle})`;
-    const newTaskDesc = `Requerimiento generado desde Atención a Clientes (${conversation.platform.toUpperCase()}):\n\n${conversation.notes || conversation.lastMessage}\n\nCanal: ${conversation.customerHandle} ${conversation.customerPhone ? ' | Tel: ' + conversation.customerPhone : ''}`;
+    const newTaskDesc = `Requerimiento generado desde Atención a Clientes (Instagram DM):\n\n${conversation.notes || conversation.lastMessage}\n\nUsuario Instagram: ${conversation.customerHandle}`;
     
     const newTask: Task = {
       id: 'task-' + Date.now(),
