@@ -85,13 +85,36 @@ export async function POST(request: NextRequest) {
               (c) => c.customerHandle === `@${senderId}` || c.id === `conv-ig-${senderId}`
             );
 
-            const timeStr = timestamp.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+            let customerName = `Usuario Instagram (${senderId.slice(-4)})`;
+            let customerHandle = `@ig_user_${senderId.slice(-4)}`;
+            let customerAvatar: string | undefined = undefined;
+
+            const igToken = process.env.INSTAGRAM_USER_ACCESS_TOKEN || 'IGAANfgVCgKLdBZAFlac2xrZAXdNVThHVUFfVlVHU0lpb0xhZA0NCQUFpd09yWWZAyNENDWjBFZAlZASQ2hVaE1ZARklfT25LZAjdkVXVRSHVpdm55WTV6S2VCbXh3cVJCa3VnTUI2SFpWenhlc2xBUURxSG9CSUVtd3JBN3M4M2hHMmtKTQZDZD';
+            if (igToken) {
+              try {
+                const profileRes = await fetch(
+                  `https://graph.instagram.com/v22.0/${senderId}?fields=name,username,profile_pic&access_token=${igToken}`
+                );
+                if (profileRes.ok) {
+                  const profileData = await profileRes.json();
+                  if (profileData.username) customerHandle = `@${profileData.username}`;
+                  if (profileData.name) customerName = profileData.name;
+                  else if (profileData.username) customerName = profileData.username;
+                  if (profileData.profile_pic) customerAvatar = profileData.profile_pic;
+                }
+              } catch (fetchProfileErr) {
+                console.warn('[Instagram Webhook] No se pudo obtener perfil de IG:', fetchProfileErr);
+              }
+            }
 
             let updatedConversations: CustomerConversation[];
 
             if (convIndex >= 0) {
               const updatedConv: CustomerConversation = {
                 ...existingConversations[convIndex],
+                customerName: existingConversations[convIndex].customerName || customerName,
+                customerHandle: existingConversations[convIndex].customerHandle || customerHandle,
+                customerAvatar: existingConversations[convIndex].customerAvatar || customerAvatar,
                 lastMessage: messageText,
                 lastMessageTime: 'Ahora',
                 unreadCount: (existingConversations[convIndex].unreadCount || 0) + 1,
@@ -105,8 +128,9 @@ export async function POST(request: NextRequest) {
               const newConv: CustomerConversation = {
                 id: `conv-ig-${senderId}`,
                 platform: 'instagram',
-                customerHandle: `@ig_user_${senderId.slice(-4)}`,
-                customerName: `Usuario Instagram (${senderId.slice(-4)})`,
+                customerHandle,
+                customerName,
+                customerAvatar,
                 lastMessage: messageText,
                 lastMessageTime: 'Ahora',
                 unreadCount: 1,
@@ -135,11 +159,13 @@ export async function POST(request: NextRequest) {
             const convId = convIndex >= 0 ? existingConversations[convIndex].id : `conv-ig-${senderId}`;
             const existingList = existingMessagesMap[convId] || [];
 
+            const timeStr = timestamp.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
             const newMsg: CustomerMessage = {
               id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
               conversationId: convId,
               sender: 'customer',
-              senderName: `Usuario (@${senderId.slice(-4)})`,
+              senderName: customerName,
               content: messageText,
               timestamp: timeStr,
               status: 'sent',
