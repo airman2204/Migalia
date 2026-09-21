@@ -40,13 +40,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onOpenTrash,
 }) => {
-  // Orden estratégico: Actividades, Kanban, Recetario & Costeo, Atención a Clientes, Documentos, Bitácora, Hitos
+  // Orden estratégico: Actividades, Kanban, Recetario & Costeo, Documentos, Bitácora, Hitos
   const menuItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Resumen Ejecutivo', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'tasks', label: 'Lista de Actividades', icon: <FolderKanban className="w-4 h-4" />, badge: counts.total },
     { id: 'kanban', label: 'Tablero Kanban', icon: <Columns3 className="w-4 h-4" /> },
     { id: 'recipes', label: 'Recetario & Costeo', icon: <ChefHat className="w-4 h-4" />, badge: counts.recipes },
-    { id: 'customer_service', label: 'Atención a Clientes', icon: <MessageCircleHeart className="w-4 h-4" />, badge: counts.customers },
     { id: 'documents', label: 'Documentación', icon: <Files className="w-4 h-4" />, badge: counts.documents },
     { id: 'logbook', label: 'Bitácora & Minutas', icon: <BookOpen className="w-4 h-4" />, badge: counts.logbook },
     { id: 'milestones', label: 'Hitos & Cronograma', icon: <CalendarRange className="w-4 h-4" />, badge: counts.milestones },
@@ -97,8 +96,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Sección Inferior: Miga AI y Configuración */}
+      {/* Sección Inferior: Atención a Clientes, Miga AI, Papelera y Configuración */}
       <div className="mt-8 space-y-2">
+        {/* Botón Atención a Clientes - Justo arriba de Miga AI */}
+        <button
+          onClick={() => onTabChange('customer_service')}
+          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border shadow-xs ${
+            activeTab === 'customer_service'
+              ? 'bg-[#221F1D] text-pink-300 border-pink-500/40 shadow-sm'
+              : 'bg-white hover:bg-stone-50 text-[#221F1D] border-pink-200/70 hover:border-pink-400'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-lg bg-linear-to-tr from-[#833AB4] via-[#FD1D1D] to-[#FCB045] flex items-center justify-center text-white shrink-0 shadow-2xs">
+              <MessageCircleHeart className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-medium text-xs">Atención a Clientes</span>
+          </div>
+          {Boolean(counts.customers && counts.customers > 0) && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-pink-100 text-pink-700 border border-pink-200">
+              {counts.customers}
+            </span>
+          )}
+        </button>
+
         {/* Botón Miga AI - Justo arriba de configuración */}
         <button
           onClick={() => onTabChange('miga_ai')}
