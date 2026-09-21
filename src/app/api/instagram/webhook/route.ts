@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
             let customerHandle = `@ig_user_${senderId.slice(-4)}`;
             let customerAvatar: string | undefined = undefined;
 
-            const igToken = process.env.INSTAGRAM_USER_ACCESS_TOKEN || 'IGAANfgVCgKLdBZAFlac2xrZAXdNVThHVUFfVlVHU0lpb0xhZA0NCQUFpd09yWWZAyNENDWjBFZAlZASQ2hVaE1ZARklfT25LZAjdkVXVRSHVpdm55WTV6S2VCbXh3cVJCa3VnTUI2SFpWenhlc2xBUURxSG9CSUVtd3JBN3M4M2hHMmtKTQZDZD';
+            const igToken = process.env.INSTAGRAM_USER_ACCESS_TOKEN || 'IGAANfgVCgKLdBZAFlZAVzFYNS0yZAnVYZAy11cWhFcURwbXNNSWVLck11ZA3lIaDlxMjZAXU0J1dkRZAdk9PNkw3OEpVdkJiNmRYckdMaEIxODBocDZAOWTJ3SUFSM1pIU0lIblhNbTl3dGphSk5jT1pncERqUlFyN0pHZATF3dkFBM09XVQZDZD';
             if (igToken) {
               try {
                 const profileRes = await fetch(
