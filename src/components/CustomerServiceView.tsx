@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Sparkle,
   ArrowRight,
+  Trash2,
 } from 'lucide-react';
 
 const InstagramIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
@@ -63,6 +64,7 @@ interface CustomerServiceViewProps {
   ) => void;
   onConvertToTask: (conversation: CustomerConversation) => void;
   onNewConversation?: (newConv: CustomerConversation, initialMsg?: string) => void;
+  onClearDemoData?: () => void;
 }
 
 export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
@@ -73,6 +75,7 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
   onUpdateConversationStatus,
   onConvertToTask,
   onNewConversation,
+  onClearDemoData,
 }) => {
   const [selectedId, setSelectedId] = useState<string>(conversations[0]?.id || '');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -300,6 +303,17 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
             <Plus className="w-4 h-4" />
             <span>Registrar Prospecto</span>
           </button>
+
+          {conversations.length > 0 && onClearDemoData && (
+            <button
+              onClick={onClearDemoData}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-stone-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+              title="Vaciar bandeja de prueba para esperar mensajes de @migaliab"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Limpiar Bandeja</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -369,9 +383,21 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
           {/* Lista scrollable de conversaciones */}
           <div className="flex-1 overflow-y-auto divide-y divide-[#E6DFD5]">
             {filteredConversations.length === 0 ? (
-              <div className="p-8 text-center text-stone-400 flex flex-col items-center justify-center">
-                <MessageSquare className="w-8 h-8 stroke-1 mb-2 text-stone-300" />
-                <p className="text-xs">No se encontraron conversaciones con los filtros aplicados.</p>
+              <div className="p-8 text-center text-stone-400 flex flex-col items-center justify-center space-y-2">
+                <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
+                  <InstagramIcon className="w-6 h-6" />
+                </div>
+                <p className="text-xs font-semibold text-stone-700">Bandeja lista para @migaliab</p>
+                <p className="text-[11px] text-stone-500 max-w-xs leading-relaxed">
+                  Cuando tus clientes envíen un mensaje directo (DM) a tu cuenta de Instagram oficial, aparecerán aquí automáticamente.
+                </p>
+                <button
+                  onClick={() => setShowNewModal(true)}
+                  className="mt-3 px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-900 text-amber-400 hover:bg-stone-800 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Registrar Primer Prospecto Manual</span>
+                </button>
               </div>
             ) : (
               filteredConversations.map((conv) => {

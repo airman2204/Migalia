@@ -1668,6 +1668,24 @@ export default function Home() {
     soundManager.playChatPop?.();
   };
 
+  // Limpiar chats de demostración de Atención a Clientes
+  const handleClearCustomerDemoData = async () => {
+    if (confirm('¿Deseas vaciar la bandeja de Atención a Clientes para dejarla 100% limpia para los mensajes de @migaliab?')) {
+      setCustomerConversations([]);
+      setCustomerMessages({});
+      try {
+        localStorage.removeItem('migalia_customer_conversations');
+        localStorage.removeItem('migalia_customer_messages');
+        await supabase.from('tasks').delete().eq('id', 'meta-customer-service');
+        supabase.channel('migalia_presence').send({
+          type: 'broadcast',
+          event: 'data_changed',
+          payload: { entity: 'customer_service' },
+        });
+      } catch (e) {}
+    }
+  };
+
   // Vaciar y empezar desde cero en Supabase
   const handleResetToZero = async () => {
     if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
@@ -1875,6 +1893,7 @@ export default function Home() {
               onUpdateConversationStatus={handleUpdateCustomerStatus}
               onConvertToTask={handleConvertCustomerToTask}
               onNewConversation={handleNewCustomerConversation}
+              onClearDemoData={handleClearCustomerDemoData}
             />
           )}
 
