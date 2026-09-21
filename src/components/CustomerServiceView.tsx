@@ -351,7 +351,7 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center font-bold text-xs">
-                          {conv.customerName.slice(0, 2).toUpperCase()}
+                          {(conv.customerName || conv.customerHandle || 'IG').slice(0, 2).toUpperCase()}
                         </div>
                       )}
                       <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] shadow-xs bg-linear-to-tr from-[#833AB4] via-[#FD1D1D] to-[#FCB045]">
@@ -412,16 +412,16 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
                       />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-stone-200 text-stone-700 flex items-center justify-center font-bold text-xs">
-                        {activeConversation.customerName.slice(0, 2).toUpperCase()}
+                        {(activeConversation.customerName || activeConversation.customerHandle || 'IG').slice(0, 2).toUpperCase()}
                       </div>
                     )}
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-xs font-bold text-[#221F1D] truncate flex items-center gap-1.5">
-                      {activeConversation.customerName}
+                      {activeConversation.customerName || activeConversation.customerHandle || 'Cliente'}
                       <span className="text-[10px] font-mono font-normal text-pink-600">
-                        {activeConversation.customerHandle}
+                        {activeConversation.customerHandle || ''}
                       </span>
                     </h3>
                     <div className="flex items-center gap-2 text-[10px] text-stone-500">

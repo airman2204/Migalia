@@ -467,11 +467,24 @@ export default function Home() {
 
         // Extraer bandeja de Atención a Clientes (Instagram DMs & CRM) si existe en la nube
         const customerMeta = dbTasks.find((t) => t.id === 'meta-customer-service');
-        if (customerMeta && Array.isArray(customerMeta.subtasks) && customerMeta.subtasks.length > 0) {
-          setCustomerConversations(customerMeta.subtasks);
-          try {
-            localStorage.setItem('migalia_customer_conversations', JSON.stringify(customerMeta.subtasks));
-          } catch (e) {}
+        if (customerMeta && Array.isArray(customerMeta.subtasks)) {
+          const validConvs = customerMeta.subtasks
+            .filter((c: any) => c && typeof c === 'object' && c.id)
+            .map((c: any) => ({
+              ...c,
+              customerName: c.customerName || c.customerHandle || 'Cliente Instagram',
+              customerHandle: c.customerHandle || '@cliente',
+              lastMessage: c.lastMessage || '',
+              lastMessageTime: c.lastMessageTime || 'Ahora',
+              platform: c.platform || 'instagram',
+              status: c.status || 'pending',
+            }));
+          if (validConvs.length > 0) {
+            setCustomerConversations(validConvs);
+            try {
+              localStorage.setItem('migalia_customer_conversations', JSON.stringify(validConvs));
+            } catch (e) {}
+          }
         }
         const customerMsgsMeta = dbTasks.find((t) => t.id === 'meta-customer-messages');
         if (customerMsgsMeta && customerMsgsMeta.subtasks && typeof customerMsgsMeta.subtasks === 'object') {
@@ -1697,9 +1710,20 @@ export default function Home() {
       if (dbCustomer && dbCustomer.length > 0) {
         const convMeta = dbCustomer.find((t) => t.id === 'meta-customer-service');
         if (convMeta && Array.isArray(convMeta.subtasks)) {
-          setCustomerConversations(convMeta.subtasks);
+          const validConvs = convMeta.subtasks
+            .filter((c: any) => c && typeof c === 'object' && c.id)
+            .map((c: any) => ({
+              ...c,
+              customerName: c.customerName || c.customerHandle || 'Cliente Instagram',
+              customerHandle: c.customerHandle || '@cliente',
+              lastMessage: c.lastMessage || '',
+              lastMessageTime: c.lastMessageTime || 'Ahora',
+              platform: c.platform || 'instagram',
+              status: c.status || 'pending',
+            }));
+          setCustomerConversations(validConvs);
           try {
-            localStorage.setItem('migalia_customer_conversations', JSON.stringify(convMeta.subtasks));
+            localStorage.setItem('migalia_customer_conversations', JSON.stringify(validConvs));
           } catch (e) {}
         }
         const msgsMeta = dbCustomer.find((t) => t.id === 'meta-customer-messages');
