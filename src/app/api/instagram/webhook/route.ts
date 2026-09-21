@@ -41,16 +41,29 @@ export async function POST(request: NextRequest) {
       const entries = body.entry || [];
 
       for (const entry of entries) {
-        const messaging = entry.messaging || [];
+        // Meta puede enviar los DMs en messaging, standby (si está en otra bandeja o app móvil), o changes
+        const rawEvents = [
+          ...(entry.messaging || []),
+          ...(entry.standby || []),
+        ];
 
-        for (const event of messaging) {
-          const senderId = event.sender?.id;
+        // Si viene en format changes (Instagram Graph API v20+)
+        if (entry.changes && Array.isArray(entry.changes)) {
+          for (const change of entry.changes) {
+            if (change.field === 'messages' && change.value) {
+              rawEvents.push(change.value);
+            }
+          }
+        }
+
+        for (const event of rawEvents) {
+          const senderId = event.sender?.id || event.from?.id;
           const recipientId = event.recipient?.id;
           const timestamp = event.timestamp ? new Date(event.timestamp) : new Date();
-          const messageText = event.message?.text;
+          const messageText = event.message?.text || event.text;
 
           // Ignorar mensajes de eco (los enviados por la propia página de Migalia)
-          if (event.message?.is_echo) {
+          if (event.message?.is_echo || event.is_echo) {
             continue;
           }
 
