@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { CustomerConversation, CustomerMessage } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 // Token de verificación que configuras en el panel de Meta for Developers
-const VERIFY_TOKEN = process.env.META_INSTAGRAM_VERIFY_TOKEN || 'migalia_instagram_secret_token_2026';
+const VERIFY_TOKEN = 'migalia_instagram_secret_token_2026';
 
 /**
  * GET: Verificación del Webhook por parte de los servidores de Meta
@@ -17,10 +19,15 @@ export async function GET(request: NextRequest) {
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('[Instagram Webhook] Verificado exitosamente con Meta');
-    return new Response(challenge, { status: 200 });
+    return new NextResponse(challenge, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+    });
   }
 
-  return new Response('Forbidden', { status: 403 });
+  return new NextResponse('Forbidden', { status: 403 });
 }
 
 /**
