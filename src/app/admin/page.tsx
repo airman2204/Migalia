@@ -25,6 +25,7 @@ import { IncomingCallToast } from '@/components/IncomingCallToast';
 import { ChatToast } from '@/components/ChatToast';
 import { TrashBinModal } from '@/components/TrashBinModal';
 import { MigaliaLoader } from '@/components/MigaliaLoader';
+import { CustomerServiceView } from '@/components/CustomerServiceView';
 import { soundManager } from '@/lib/soundEffects';
 import { supabase } from '@/lib/supabase';
 
@@ -36,6 +37,7 @@ import {
   INITIAL_RECIPES,
   INITIAL_DOCUMENTS,
 } from '@/lib/initialData';
+import { INITIAL_CONVERSATIONS, INITIAL_MESSAGES } from '@/lib/initialCustomerData';
 import {
   Task,
   LogbookEntry,
@@ -47,6 +49,8 @@ import {
   ScheduledMeeting,
   ChatMessage,
   TrashedItem,
+  CustomerConversation,
+  CustomerMessage,
 } from '@/types';
 
 // Normaliza la identidad del socio logueado para garantizar consistencia con los socios fundadores
@@ -227,6 +231,29 @@ export default function Home() {
     ];
   });
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  // Módulo Atención a Clientes (Instagram DMs & CRM de Mensajería)
+  const [customerConversations, setCustomerConversations] = useState<CustomerConversation[]>(() => {
+    try {
+      const local = localStorage.getItem('migalia_customer_conversations');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_CONVERSATIONS;
+  });
+
+  const [customerMessages, setCustomerMessages] = useState<Record<string, CustomerMessage[]>>(() => {
+    try {
+      const local = localStorage.getItem('migalia_customer_messages');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_MESSAGES;
+  });
   const [chatNotification, setChatNotification] = useState<{
     message: ChatMessage;
     senderAvatar?: string;
@@ -436,6 +463,28 @@ export default function Home() {
           try {
             localStorage.setItem('migalia_trash_bin', JSON.stringify(trashMeta.subtasks));
           } catch (e) {}
+        }
+
+        // Extraer bandeja de Atención a Clientes (Instagram DMs & CRM) si existe en la nube
+        const customerMeta = dbTasks.find((t) => t.id === 'meta-customer-service');
+        if (customerMeta && Array.isArray(customerMeta.subtasks) && customerMeta.subtasks.length > 0) {
+          setCustomerConversations(customerMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_customer_conversations', JSON.stringify(customerMeta.subtasks));
+          } catch (e) {}
+        }
+        const customerMsgsMeta = dbTasks.find((t) => t.id === 'meta-customer-messages');
+        if (customerMsgsMeta && customerMsgsMeta.subtasks && typeof customerMsgsMeta.subtasks === 'object') {
+          // subtasks se guarda como array u objeto
+          const msgsPayload = Array.isArray(customerMsgsMeta.subtasks) 
+            ? (customerMsgsMeta.subtasks[0] || {}) 
+            : customerMsgsMeta.subtasks;
+          if (Object.keys(msgsPayload).length > 0) {
+            setCustomerMessages(msgsPayload);
+            try {
+              localStorage.setItem('migalia_customer_messages', JSON.stringify(msgsPayload));
+            } catch (e) {}
+          }
         }
 
         // Filtrar meta-registros del listado de tareas visibles
@@ -1443,6 +1492,182 @@ export default function Home() {
     } catch (e) {}
   };
 
+  // 9. Operaciones del Módulo de Atención a Clientes (Instagram DMs & CRM)
+  const handleSendCustomerMessage = async (conversationId: string, content: string) => {
+    const newMsg: CustomerMessage = {
+      id: 'msg-' + Date.now(),
+      conversationId,
+      sender: 'agent',
+      senderName: currentPartner?.shortName ? `${currentPartner.shortName} (Migalia)` : 'Mario (Migalia)',
+      content,
+      timestamp: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+      status: 'sent',
+    };
+
+    // Actualizar mensajes
+    setCustomerMessages((prev) => {
+      const existing = prev[conversationId] || [];
+      const updated = { ...prev, [conversationId]: [...existing, newMsg] };
+      try {
+        localStorage.setItem('migalia_customer_messages', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // Actualizar última actividad en la conversación
+    setCustomerConversations((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id === conversationId) {
+          return {
+            ...c,
+            lastMessage: content,
+            lastMessageTime: 'Ahora',
+            status: c.status === 'pending' ? 'in_progress' : c.status,
+          };
+        }
+        return c;
+      });
+      try {
+        localStorage.setItem('migalia_customer_conversations', JSON.stringify(updated));
+      } catch (e) {}
+      // Sincronizar en background con Supabase
+      (async () => {
+        try {
+          await supabase.from('tasks').upsert({
+            id: 'meta-customer-service',
+            title: 'Bandeja de Atención a Clientes (Instagram DMs & CRM)',
+            description: 'Conversaciones y prospectos de redes sociales',
+            status: 'done',
+            priority: 'medium',
+            assigned_to: currentPartner?.id || 'partner-1',
+            category: 'Ventas',
+            subtasks: updated,
+          });
+          supabase.channel('migalia_presence').send({
+            type: 'broadcast',
+            event: 'data_changed',
+            payload: { entity: 'customer_service' },
+          });
+        } catch (e) {}
+      })();
+      return updated;
+    });
+  };
+
+  const handleUpdateCustomerStatus = async (
+    conversationId: string,
+    status: CustomerConversation['status'],
+    notes?: string,
+    quotedAmount?: number
+  ) => {
+    setCustomerConversations((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id === conversationId) {
+          return {
+            ...c,
+            status,
+            notes: notes !== undefined ? notes : c.notes,
+            quotedAmount: quotedAmount !== undefined ? quotedAmount : c.quotedAmount,
+          };
+        }
+        return c;
+      });
+      try {
+        localStorage.setItem('migalia_customer_conversations', JSON.stringify(updated));
+      } catch (e) {}
+      (async () => {
+        try {
+          await supabase.from('tasks').upsert({
+            id: 'meta-customer-service',
+            title: 'Bandeja de Atención a Clientes (Instagram DMs & CRM)',
+            description: 'Conversaciones y prospectos de redes sociales',
+            status: 'done',
+            priority: 'medium',
+            assigned_to: currentPartner?.id || 'partner-1',
+            category: 'Ventas',
+            subtasks: updated,
+          });
+        } catch (e) {}
+      })();
+      return updated;
+    });
+  };
+
+  const handleNewCustomerConversation = async (newConv: CustomerConversation, initialMsg?: string) => {
+    const updatedConvs = [newConv, ...customerConversations];
+    setCustomerConversations(updatedConvs);
+    try {
+      localStorage.setItem('migalia_customer_conversations', JSON.stringify(updatedConvs));
+    } catch (e) {}
+
+    if (initialMsg) {
+      const firstMsg: CustomerMessage = {
+        id: 'msg-' + Date.now(),
+        conversationId: newConv.id,
+        sender: 'customer',
+        senderName: newConv.customerName,
+        content: initialMsg,
+        timestamp: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        status: 'read',
+      };
+      setCustomerMessages((prev) => {
+        const updatedMsgs = { ...prev, [newConv.id]: [firstMsg] };
+        try {
+          localStorage.setItem('migalia_customer_messages', JSON.stringify(updatedMsgs));
+        } catch (e) {}
+        return updatedMsgs;
+      });
+    }
+
+    try {
+      await supabase.from('tasks').upsert({
+        id: 'meta-customer-service',
+        title: 'Bandeja de Atención a Clientes (Instagram DMs & CRM)',
+        description: 'Conversaciones y prospectos de redes sociales',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-1',
+        category: 'Ventas',
+        subtasks: updatedConvs,
+      });
+      supabase.channel('migalia_presence').send({
+        type: 'broadcast',
+        event: 'data_changed',
+        payload: { entity: 'customer_service' },
+      });
+    } catch (e) {}
+  };
+
+  const handleConvertCustomerToTask = (conversation: CustomerConversation) => {
+    const newTaskTitle = `Pedido / Evento: ${conversation.customerName} (${conversation.customerHandle})`;
+    const newTaskDesc = `Requerimiento generado desde Atención a Clientes (${conversation.platform.toUpperCase()}):\n\n${conversation.notes || conversation.lastMessage}\n\nCanal: ${conversation.customerHandle} ${conversation.customerPhone ? ' | Tel: ' + conversation.customerPhone : ''}`;
+    
+    const newTask: Task = {
+      id: 'task-' + Date.now(),
+      title: newTaskTitle,
+      description: newTaskDesc,
+      category: 'Ventas & Eventos',
+      assignedTo: conversation.assignedTo || currentPartner?.id || 'partner-1',
+      priority: conversation.status === 'order_confirmed' ? 'urgent' : 'high',
+      status: 'todo',
+      startDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      estimatedCost: conversation.quotedAmount || 0,
+      actualCost: 0,
+      isBlocked: false,
+      createdAt: new Date().toISOString().split('T')[0],
+      subtasks: [
+        { id: 'st-c-1', title: 'Confirmar especificaciones de producto y empaque', completed: false },
+        { id: 'st-c-2', title: 'Validar anticipo del 50% o liquidación', completed: conversation.status === 'order_confirmed' },
+        { id: 'st-c-3', title: 'Programar horneado y logística de entrega', completed: false },
+      ],
+    };
+
+    handleSaveTask(newTask);
+    setActiveTab('kanban');
+    soundManager.playChatPop?.();
+  };
+
   // Vaciar y empezar desde cero en Supabase
   const handleResetToZero = async () => {
     if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
@@ -1463,8 +1688,17 @@ export default function Home() {
       recipes: recipes.length,
       documents: documents.length,
       trash: trashedItems.length,
+      customers: customerConversations.filter((c) => c.status === 'pending' || c.unreadCount > 0).length,
     }),
-    [displayedTasks, logbook.length, milestones.length, recipes.length, documents.length, trashedItems.length]
+    [
+      displayedTasks,
+      logbook.length,
+      milestones.length,
+      recipes.length,
+      documents.length,
+      trashedItems.length,
+      customerConversations,
+    ]
   );
 
   if (!isLoaded) {
@@ -1629,6 +1863,18 @@ export default function Home() {
                 setIsRecipeModalOpen(true);
               }}
               onDeleteRecipe={handleDeleteRecipe}
+            />
+          )}
+
+          {activeTab === 'customer_service' && (
+            <CustomerServiceView
+              conversations={customerConversations}
+              messages={customerMessages}
+              currentPartner={currentPartner}
+              onSendMessage={handleSendCustomerMessage}
+              onUpdateConversationStatus={handleUpdateCustomerStatus}
+              onConvertToTask={handleConvertCustomerToTask}
+              onNewConversation={handleNewCustomerConversation}
             />
           )}
 

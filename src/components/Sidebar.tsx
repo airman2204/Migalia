@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files, Sparkles, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { LayoutDashboard, Columns3, BookOpen, CalendarRange, FolderKanban, Settings, ChefHat, Files, Sparkles, FileSpreadsheet, Trash2, MessageCircleHeart } from 'lucide-react';
 
 export type ActiveTab =
   | 'dashboard'
   | 'tasks'
   | 'kanban'
   | 'recipes'
+  | 'customer_service'
   | 'documents'
   | 'logbook'
   | 'milestones'
@@ -26,6 +27,7 @@ interface SidebarProps {
     recipes?: number;
     documents?: number;
     trash?: number;
+    customers?: number;
   };
   onOpenSettings?: () => void;
   onOpenTrash?: () => void;
@@ -38,12 +40,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onOpenTrash,
 }) => {
-  // Orden estratégico: Actividades, Kanban, Recetario & Costeo, Documentos & Archivos, Bitácora, Hitos
+  // Orden estratégico: Actividades, Kanban, Recetario & Costeo, Atención a Clientes, Documentos, Bitácora, Hitos
   const menuItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Resumen Ejecutivo', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'tasks', label: 'Lista de Actividades', icon: <FolderKanban className="w-4 h-4" />, badge: counts.total },
     { id: 'kanban', label: 'Tablero Kanban', icon: <Columns3 className="w-4 h-4" /> },
     { id: 'recipes', label: 'Recetario & Costeo', icon: <ChefHat className="w-4 h-4" />, badge: counts.recipes },
+    { id: 'customer_service', label: 'Atención a Clientes', icon: <MessageCircleHeart className="w-4 h-4" />, badge: counts.customers },
     { id: 'documents', label: 'Documentación', icon: <Files className="w-4 h-4" />, badge: counts.documents },
     { id: 'logbook', label: 'Bitácora & Minutas', icon: <BookOpen className="w-4 h-4" />, badge: counts.logbook },
     { id: 'milestones', label: 'Hitos & Cronograma', icon: <CalendarRange className="w-4 h-4" />, badge: counts.milestones },

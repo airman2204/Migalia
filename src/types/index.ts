@@ -243,3 +243,41 @@ export interface TrashedItem {
   deletedBy: string;
   payload: any;
 }
+
+/**
+ * Mensaje individual en el módulo de Atención a Clientes (Instagram / WhatsApp / Web).
+ */
+export interface CustomerMessage {
+  id: string;
+  conversationId: string;
+  sender: 'customer' | 'agent';
+  senderName: string;
+  content: string;
+  timestamp: string;
+  attachments?: string[];
+  status?: 'sent' | 'delivered' | 'read';
+}
+
+/**
+ * Conversación / Ticket en el módulo de Atención a Clientes.
+ */
+export interface CustomerConversation {
+  id: string;
+  platform: 'instagram' | 'whatsapp' | 'web';
+  customerHandle: string; // ej. @sofia_montes_puebla
+  customerName: string;   // ej. Sofía Montes
+  customerAvatar?: string;
+  customerPhone?: string;
+  lastMessage: string;
+  lastMessageTime: string;
+  unreadCount: number;
+  status: 'pending' | 'in_progress' | 'quote_sent' | 'order_confirmed' | 'resolved';
+  category?: 'Cotización de Pastel' | 'Pedido Evento' | 'Duda Menú & Alérgenos' | 'Horarios & Ubicación' | 'General';
+  assignedTo?: string; // ID del socio asignado (ej. 'partner-1' o 'partner-2')
+  notes?: string;
+  quotedAmount?: number;
+  orderReference?: string;
+  createdAt: string;
+  tags?: string[];
+}
+
