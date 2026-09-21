@@ -1699,9 +1699,17 @@ export default function Home() {
     }
   };
 
-  // Recargar en caliente las conversaciones de Instagram desde Supabase
+  // Recargar en caliente las conversaciones de Instagram desde Supabase y Graph API
   const handleRefreshCustomerService = async () => {
     try {
+      // 1. Intentar disparar sincronización en vivo con Meta
+      try {
+        await fetch('/api/instagram/sync');
+      } catch (syncErr) {
+        console.warn('Sync background ping:', syncErr);
+      }
+
+      // 2. Traer los datos actualizados de Supabase
       const { data: dbCustomer } = await supabase
         .from('tasks')
         .select('*')
