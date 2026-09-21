@@ -64,6 +64,7 @@ interface CustomerServiceViewProps {
   ) => void;
   onConvertToTask: (conversation: CustomerConversation) => void;
   onClearDemoData?: () => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
@@ -74,6 +75,7 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
   onUpdateConversationStatus,
   onConvertToTask,
   onClearDemoData,
+  onRefresh,
 }) => {
   const [selectedId, setSelectedId] = useState<string>(conversations[0]?.id || '');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -173,11 +175,16 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
     );
   };
 
-  const simulateSync = () => {
+  const simulateSync = async () => {
     setIsSyncing(true);
+    if (onRefresh) {
+      try {
+        await onRefresh();
+      } catch (e) {}
+    }
     setTimeout(() => {
       setIsSyncing(false);
-    }, 1200);
+    }, 800);
   };
 
   const getStatusBadge = (status: CustomerConversation['status']) => {

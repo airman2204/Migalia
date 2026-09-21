@@ -1686,6 +1686,38 @@ export default function Home() {
     }
   };
 
+  // Recargar en caliente las conversaciones de Instagram desde Supabase
+  const handleRefreshCustomerService = async () => {
+    try {
+      const { data: dbCustomer } = await supabase
+        .from('tasks')
+        .select('*')
+        .in('id', ['meta-customer-service', 'meta-customer-messages']);
+
+      if (dbCustomer && dbCustomer.length > 0) {
+        const convMeta = dbCustomer.find((t) => t.id === 'meta-customer-service');
+        if (convMeta && Array.isArray(convMeta.subtasks)) {
+          setCustomerConversations(convMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_customer_conversations', JSON.stringify(convMeta.subtasks));
+          } catch (e) {}
+        }
+        const msgsMeta = dbCustomer.find((t) => t.id === 'meta-customer-messages');
+        if (msgsMeta && msgsMeta.subtasks) {
+          const msgsPayload = Array.isArray(msgsMeta.subtasks)
+            ? msgsMeta.subtasks[0] || {}
+            : msgsMeta.subtasks;
+          setCustomerMessages(msgsPayload);
+          try {
+            localStorage.setItem('migalia_customer_messages', JSON.stringify(msgsPayload));
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      console.error('Error refreshing customer service:', e);
+    }
+  };
+
   // Vaciar y empezar desde cero en Supabase
   const handleResetToZero = async () => {
     if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
@@ -1893,6 +1925,7 @@ export default function Home() {
               onUpdateConversationStatus={handleUpdateCustomerStatus}
               onConvertToTask={handleConvertCustomerToTask}
               onClearDemoData={handleClearCustomerDemoData}
+              onRefresh={handleRefreshCustomerService}
             />
           )}
 
