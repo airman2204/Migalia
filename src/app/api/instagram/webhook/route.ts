@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
             };
 
             // Guardar en Supabase y emitir presencia en tiempo real
-            await supabase.from('tasks').upsert({
+            const { error: convErr } = await supabase.from('tasks').upsert({
               id: 'meta-customer-service',
               title: 'Bandeja de Atención a Clientes (Instagram DMs & CRM)',
               description: 'Conversaciones y prospectos de redes sociales',
@@ -162,7 +162,11 @@ export async function POST(request: NextRequest) {
               subtasks: updatedConversations,
             });
 
-            await supabase.from('tasks').upsert({
+            if (convErr) {
+              console.error('[Instagram Webhook] Error guardando conversaciones:', convErr);
+            }
+
+            const { error: msgErr } = await supabase.from('tasks').upsert({
               id: 'meta-customer-messages',
               title: 'Historial de Mensajes de Clientes (Instagram & CRM)',
               description: 'Mensajes individuales indexados por ID de conversación',
@@ -173,11 +177,19 @@ export async function POST(request: NextRequest) {
               subtasks: [updatedMessagesMap],
             });
 
-            supabase.channel('migalia_presence').send({
-              type: 'broadcast',
-              event: 'data_changed',
-              payload: { entity: 'customer_service' },
-            });
+            if (msgErr) {
+              console.error('[Instagram Webhook] Error guardando mensajes:', msgErr);
+            }
+
+            try {
+              supabase.channel('migalia_presence').send({
+                type: 'broadcast',
+                event: 'data_changed',
+                payload: { entity: 'customer_service' },
+              });
+            } catch (broadcastErr) {
+              console.warn('[Instagram Webhook] Error enviando broadcast:', broadcastErr);
+            }
           }
         }
       }
