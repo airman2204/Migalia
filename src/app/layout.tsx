@@ -10,7 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || 'https://migalia.vercel.app'
+    process.env.NEXT_PUBLIC_SITE_URL || 'https://www.migaliabakery.com'
   ),
   title: {
     default: 'MÍGALIA • Boutique Bakery',
