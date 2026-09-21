@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Partner } from '@/types';
 import { ArrowRight, Mail, Lock, XCircle, Eye, EyeOff } from 'lucide-react';
 
@@ -88,7 +89,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ partners, onLogin }) =
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#EBE0CD] rounded-full filter blur-3xl opacity-50 pointer-events-none" />
 
       {/* Brand Central Grande */}
-      <div className="relative z-10 text-center mb-8 space-y-2">
+      <div className="relative z-10 text-center mb-8 space-y-3">
+        <div className="flex justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-white border border-[#E6DFD5] shadow-md flex items-center justify-center overflow-hidden">
+            <Image
+              src="/icon.png"
+              alt="MÍGALIA"
+              width={48}
+              height={48}
+              className="w-12 h-12 object-contain"
+              priority
+            />
+          </div>
+        </div>
         <div className="flex items-baseline justify-center tracking-widest text-[#221F1D]">
           <span className="text-4xl sm:text-5xl font-bold tracking-[0.28em]">M</span>
           <span className="text-4xl sm:text-5xl font-bold tracking-[0.28em] relative">

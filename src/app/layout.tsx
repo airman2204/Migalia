@@ -9,15 +9,40 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "MIGALIA",
-  description: "MIGALIA",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || 'https://migalia.vercel.app'
+  ),
+  title: {
+    default: 'MÍGALIA • Boutique Bakery',
+    template: '%s | MÍGALIA',
+  },
+  description: 'MÍGALIA — Boutique Bakery. El arte de lo sutil. Alta repostería y panadería artesanal.',
+  applicationName: 'MÍGALIA',
+  keywords: ['Migalia', 'Boutique Bakery', 'Repostería', 'Panadería Artesanal', 'Cookie Fries', 'Puebla', 'Alta Repostería'],
+  authors: [{ name: 'MÍGALIA Team' }],
+  creator: 'MÍGALIA',
   icons: {
     icon: [
-      { url: "/icon.png" },
-      { url: "/favicon.png" },
+      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
     ],
-    shortcut: "/icon.png",
-    apple: "/icon.png",
+    shortcut: '/icon.png',
+    apple: [
+      { url: '/icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  openGraph: {
+    title: 'MÍGALIA • Boutique Bakery',
+    description: 'El arte de lo sutil. Alta repostería y panadería artesanal.',
+    url: 'https://migalia.vercel.app',
+    siteName: 'MÍGALIA',
+    locale: 'es_MX',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'MÍGALIA • Boutique Bakery',
+    description: 'El arte de lo sutil. Alta repostería y panadería artesanal.',
   },
 };
 

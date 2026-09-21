@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Mail } from 'lucide-react';
 
 export default function ComingSoonPage() {
@@ -11,14 +12,26 @@ export default function ComingSoonPage() {
 
       {/* Hero Central */}
       <main className="max-w-2xl w-full mx-auto text-center space-y-8 my-auto py-12">
-        {/* Brand Logo - Centrado y Grande */}
-        <div className="flex items-baseline justify-center tracking-widest text-[#221F1D] select-none">
-          <span className="text-5xl sm:text-7xl font-bold tracking-[0.25em]">M</span>
-          <span className="text-5xl sm:text-7xl font-bold tracking-[0.25em] relative">
-            I
-            <span className="absolute -top-2.5 sm:-top-3.5 left-1/2 -translate-x-1/2 w-3 sm:w-4 h-1.5 sm:h-2 bg-[#C59B27] rounded-sm transform rotate-12" />
-          </span>
-          <span className="text-5xl sm:text-7xl font-bold tracking-[0.25em]">GALIA</span>
+        {/* Brand Logo - Centrado y Grande con Isotipo Oficial */}
+        <div className="flex flex-col items-center gap-4 select-none">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white border border-[#E6DFD5] shadow-xl shadow-stone-200/60 flex items-center justify-center overflow-hidden">
+            <Image
+              src="/icon.png"
+              alt="MÍGALIA"
+              width={64}
+              height={64}
+              className="w-14 h-14 sm:w-16 sm:h-16 object-contain"
+              priority
+            />
+          </div>
+          <div className="flex items-baseline justify-center tracking-widest text-[#221F1D]">
+            <span className="text-5xl sm:text-7xl font-bold tracking-[0.25em]">M</span>
+            <span className="text-5xl sm:text-7xl font-bold tracking-[0.25em] relative">
+              I
+              <span className="absolute -top-2.5 sm:-top-3.5 left-1/2 -translate-x-1/2 w-3 sm:w-4 h-1.5 sm:h-2 bg-[#C59B27] rounded-sm transform rotate-12" />
+            </span>
+            <span className="text-5xl sm:text-7xl font-bold tracking-[0.25em]">GALIA</span>
+          </div>
         </div>
 
         {/* Subtítulo & Texto */}

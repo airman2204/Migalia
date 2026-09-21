@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Partner } from '@/types';
 import { User, Users, Plus, LogOut, MessageSquare, Calendar, Video, Search } from 'lucide-react';
 
@@ -31,7 +32,17 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/90 backdrop-blur-md border-b border-[#E6DFD5] px-4 lg:px-8 py-3.5 transition-all">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Brand Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-white border border-[#E6DFD5] shadow-xs flex items-center justify-center overflow-hidden shrink-0">
+            <Image
+              src="/icon.png"
+              alt="MÍGALIA"
+              width={26}
+              height={26}
+              className="w-6 h-6 object-contain"
+              priority
+            />
+          </div>
           <div className="flex items-baseline tracking-widest text-[#221F1D]">
             <span className="text-xl md:text-2xl font-bold tracking-[0.25em]">M</span>
             <span className="text-xl md:text-2xl font-bold tracking-[0.25em] relative">
