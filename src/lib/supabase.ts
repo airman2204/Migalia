@@ -6,18 +6,25 @@ const defaultKey =
 
 // Inicializador seguro: garantiza que createClient solo se ejecute con una URL válida
 function getSupabaseClient(): SupabaseClient {
-  const url =
+  let rawUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.SUPABASE_URL ||
     defaultUrl;
-  const key =
+  let rawKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     defaultKey;
 
-  // Si por alguna razon Vercel inyecta una variable vacía, forzar fallback
-  const validUrl = typeof url === 'string' && url.startsWith('http') ? url : defaultUrl;
-  const validKey = typeof key === 'string' && key.length > 10 ? key : defaultKey;
+  // Si en el panel de Vercel se invirtieron URL y KEY por error humano:
+  if (rawUrl.startsWith('eyJ') && rawKey.startsWith('http')) {
+    const temp = rawUrl;
+    rawUrl = rawKey;
+    rawKey = temp;
+  }
+
+  // Si rawKey quedó con una URL o rawUrl no es URL válida, usar fallback seguro
+  const validUrl = typeof rawUrl === 'string' && rawUrl.startsWith('http') ? rawUrl : defaultUrl;
+  const validKey = typeof rawKey === 'string' && rawKey.startsWith('eyJ') ? rawKey : defaultKey;
 
   return createClient(validUrl, validKey, {
     global: {

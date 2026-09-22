@@ -176,11 +176,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           status: 'EVENT_RECEIVED',
           success: true,
-          convCount: updatedConversations.length,
-          upsertErr1: upsertErr1?.message || null,
-          upsertErr2: upsertErr2?.message || null,
-          keySnippet: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'using_default').slice(0, 15),
-          urlSnippet: (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'using_default'),
         }, { status: 200 });
       }
     }
