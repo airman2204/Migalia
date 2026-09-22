@@ -291,7 +291,7 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       try {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
-        const validTabs: ActiveTab[] = ['dashboard', 'tasks', 'kanban', 'recipes', 'documents', 'logbook', 'milestones', 'calendar', 'calls', 'miga_ai'];
+        const validTabs: ActiveTab[] = ['dashboard', 'tasks', 'kanban', 'recipes', 'customer_service', 'documents', 'logbook', 'milestones', 'calendar', 'calls', 'miga_ai'];
         if (hash && validTabs.includes(hash)) return hash;
 
         const savedTab = localStorage.getItem('migalia_active_tab') as ActiveTab;
