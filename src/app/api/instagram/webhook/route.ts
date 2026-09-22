@@ -202,7 +202,8 @@ export async function POST(request: NextRequest) {
         for (const event of rawEvents) {
           const senderId = event.sender?.id || event.from?.id;
           const recipientId = event.recipient?.id;
-          const timestamp = event.timestamp ? new Date(event.timestamp) : new Date();
+          const rawTs = event.timestamp ? Number(event.timestamp) : Date.now();
+          const timestamp = !isNaN(rawTs) ? new Date(rawTs < 10000000000 ? rawTs * 1000 : rawTs) : new Date();
           const messageText = event.message?.text || event.text;
 
           // Ignorar mensajes de eco (los enviados por la propia página de Migalia)
