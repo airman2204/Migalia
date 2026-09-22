@@ -1762,12 +1762,12 @@ export default function Home() {
     }
   };
 
-  // Vaciar y empezar desde cero en Supabase
+  // Vaciar y empezar desde cero en Supabase (protegiendo configuraciones y mensajes del sistema)
   const handleResetToZero = async () => {
-    if (confirm('¿Deseas vaciar todas las tareas y bitácora en la base de datos para empezar un proyecto 100% desde cero?')) {
+    if (confirm('¿Deseas vaciar todas las tareas operativas y bitácora en la base de datos para empezar un proyecto limpio?')) {
       setTasks([]);
       setLogbook([]);
-      await supabase.from('tasks').delete().neq('id', '');
+      await supabase.from('tasks').delete().not('id', 'like', 'meta-%');
       await supabase.from('logbook').delete().neq('id', '');
     }
   };
