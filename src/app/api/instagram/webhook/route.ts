@@ -181,6 +181,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.object === 'instagram' || body.object === 'page') {
+      console.log('[Instagram Webhook] Event received:', JSON.stringify(body));
       const entries = body.entry || [];
 
       for (const entry of entries) {
