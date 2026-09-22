@@ -96,9 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Sección Inferior: Atención a Clientes, Miga AI, Papelera y Configuración */}
+      {/* Sección Inferior: Miga AI, Papelera y Configuración */}
       <div className="mt-8 space-y-2">
-        {/* Botón Atención a Clientes - Justo arriba de Miga AI */}
+        {/* Nota: Módulo Clientes instagram deshabilitado temporalmente mientras se concluye la verificación de Meta
         <button
           onClick={() => onTabChange('customer_service')}
           className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border shadow-xs ${
@@ -119,6 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           )}
         </button>
+        */}
 
         {/* Botón Miga AI - Justo arriba de configuración */}
         <button
