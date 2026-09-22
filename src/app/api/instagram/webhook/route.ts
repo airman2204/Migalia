@@ -182,6 +182,16 @@ export async function POST(request: NextRequest) {
 
     if (body.object === 'instagram' || body.object === 'page') {
       console.log('[Instagram Webhook] Event received:', JSON.stringify(body));
+
+      // Reenviar automáticamente a Make.com en segundo plano
+      try {
+        fetch('https://hook.us2.make.com/egkx56rmf3o4iw8wvirs4ulczi8me5yd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }).catch((err) => console.warn('[Mirror to Make Error]', err));
+      } catch (e) {}
+
       const entries = body.entry || [];
 
       for (const entry of entries) {
