@@ -351,8 +351,12 @@ export async function POST(request: NextRequest) {
     }
 
     return new Response('Not Found', { status: 404 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Instagram Webhook Error]', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Internal Server Error',
+      message: error?.message || String(error),
+      stack: error?.stack,
+    }, { status: 500 });
   }
 }
