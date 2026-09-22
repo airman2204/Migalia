@@ -37,13 +37,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Soporte directo para Zapier / Make / Webhook Relay plano:
-    // Si viene directamente con senderId / customerHandle / messageText
-    if (body.customerHandle || body.senderId || body.message || body.text) {
-      const senderHandle = body.customerHandle || (body.username ? `@${body.username}` : '@cliente_instagram');
-      const senderName = body.customerName || body.name || body.username || 'Cliente Instagram';
-      const senderAvatar = body.customerAvatar || body.profile_pic || undefined;
-      const messageText = body.message || body.text || body.content || '';
+    // Soporte directo para ManyChat / Zapier / Make / Webhook Relay plano:
+    // ManyChat envía campos como: ig_username, username, first_name, last_name, last_input_text, message, id, etc.
+    if (body.customerHandle || body.senderId || body.message || body.text || body.last_input_text || body.ig_username || body.subscriber_id) {
+      const rawHandle = body.customerHandle || body.ig_username || body.username || (body.subscriber_id ? `user_${body.subscriber_id}` : 'cliente_instagram');
+      const senderHandle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`;
+      
+      const fullName = [body.first_name, body.last_name].filter(Boolean).join(' ');
+      const senderName = body.customerName || fullName || body.name || body.username || body.ig_username || 'Cliente Instagram';
+      const senderAvatar = body.customerAvatar || body.profile_pic || body.avatar || undefined;
+      const messageText = body.message || body.text || body.content || body.last_input_text || '';
       const convId = body.conversationId || `conv-ig-${(senderHandle || 'user').replace(/[^a-zA-Z0-9]/g, '_')}`;
 
       if (messageText) {

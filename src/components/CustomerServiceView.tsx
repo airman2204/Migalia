@@ -221,14 +221,14 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
 
         <div className="flex items-center gap-2 flex-wrap">
           <a
-            href="https://www.instagram.com/migaliab/"
+            href="https://www.instagram.com/migaliabky/"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-linear-to-tr from-[#833AB4] via-[#FD1D1D] to-[#FCB045] text-white hover:opacity-90 transition-opacity shadow-xs"
-            title="Abrir perfil oficial de Migalia en Instagram"
+            title="Abrir perfil oficial de Migalia (@migaliabky) en Instagram"
           >
             <InstagramIcon className="w-3.5 h-3.5" />
-            <span>@migaliab</span>
+            <span>@migaliabky</span>
             <ExternalLink className="w-3 h-3" />
           </a>
 
@@ -236,7 +236,7 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
             onClick={simulateSync}
             disabled={isSyncing}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-[#E6DFD5] bg-[#F8F6F0] hover:bg-stone-200 text-[#221F1D] transition-colors"
-            title="Sincronizar bandeja con Meta Graph API"
+            title="Sincronizar bandeja con Meta Graph API / ManyChat"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-pink-600' : 'text-stone-600'}`} />
             <span>{isSyncing ? 'Sincronizando...' : 'Actualizar DMs'}</span>
@@ -246,7 +246,7 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
             <button
               onClick={onClearDemoData}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-stone-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
-              title="Vaciar bandeja de prueba para esperar mensajes de @migaliab"
+              title="Vaciar bandeja de prueba para esperar mensajes de @migaliabky"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Limpiar Bandeja</span>
