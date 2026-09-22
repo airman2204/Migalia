@@ -35,7 +35,20 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: any = {};
+    const text = await request.text();
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch (err) {
+        console.warn('[Instagram Webhook] Could not parse JSON body, text was:', text);
+        try {
+          body = Object.fromEntries(new URLSearchParams(text));
+        } catch {
+          body = {};
+        }
+      }
+    }
 
     // Soporte directo para ManyChat / Zapier / Make / Webhook Relay plano:
     // ManyChat envía campos como: ig_username, username, first_name, last_name, last_input_text, message, id, etc.
