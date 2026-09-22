@@ -232,7 +232,10 @@ export const PartnersChatDrawer: React.FC<PartnersChatDrawerProps> = ({
             {/* Mensajes */}
             <div className="flex-1 p-3 overflow-y-auto space-y-2.5 bg-[#FBF9F4] select-text">
               {messages.map((msg) => {
-                const isMe = msg.senderId === currentPartner?.id || msg.senderName === currentPartner?.shortName;
+                const isMe =
+                  Boolean(currentPartner?.id && msg.senderId === currentPartner.id) ||
+                  Boolean(msg.senderName && currentPartner?.shortName && msg.senderName.toLowerCase() === currentPartner.shortName.toLowerCase()) ||
+                  Boolean(msg.senderName && currentPartner?.name && msg.senderName.toLowerCase() === currentPartner.name.toLowerCase());
 
                 return (
                   <div

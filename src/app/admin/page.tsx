@@ -596,7 +596,13 @@ export default function Home() {
     chatChannelRef.current = chatChannel;
     chatChannel
       .on('broadcast', { event: 'new_chat_message' }, ({ payload }) => {
-        if (payload?.senderId !== currentPartner.id) {
+        if (!payload) return;
+        const isFromMe =
+          payload.senderId === currentPartner.id ||
+          Boolean(currentPartner.email && payload.senderEmail && currentPartner.email.toLowerCase() === payload.senderEmail.toLowerCase()) ||
+          Boolean(currentPartner.shortName && payload.senderName && currentPartner.shortName.toLowerCase() === payload.senderName.toLowerCase());
+
+        if (!isFromMe) {
           setChatMessages((prev) => {
             const exists = prev.some((m) => m.id === payload.id);
             if (exists) return prev;
@@ -696,7 +702,13 @@ export default function Home() {
         }
       })
       .on('broadcast', { event: 'new_chat_message' }, ({ payload }) => {
-        if (payload?.senderId !== currentPartner.id) {
+        if (!payload) return;
+        const isFromMe =
+          payload.senderId === currentPartner.id ||
+          Boolean(currentPartner.email && payload.senderEmail && currentPartner.email.toLowerCase() === payload.senderEmail.toLowerCase()) ||
+          Boolean(currentPartner.shortName && payload.senderName && currentPartner.shortName.toLowerCase() === payload.senderName.toLowerCase());
+
+        if (!isFromMe) {
           setChatMessages((prev) => {
             const exists = prev.some((m) => m.id === payload.id);
             if (exists) return prev;
@@ -2159,18 +2171,27 @@ export default function Home() {
             return updated;
           });
 
-          // Transmitir por el canal dedicado de chat (más confiable que el canal de presencia)
+          // 1. Transmitir por ambos canales para redundancia total de WebSocket
+          const payloadToSend = {
+            ...newMsg,
+            senderEmail: currentPartner?.email,
+          };
+
           try {
             if (chatChannelRef.current) {
               chatChannelRef.current.send({
                 type: 'broadcast',
                 event: 'new_chat_message',
-                payload: newMsg,
+                payload: payloadToSend,
               });
             }
           } catch (e) {}
 
-          // Persistir en Supabase de forma segura leyendo los mensajes más recientes para no sobrescribir mensajes concurrentes
+          try {
+            sendBroadcast('new_chat_message', payloadToSend);
+          } catch (e) {}
+
+          // 2. Persistir en Supabase de forma segura leyendo los mensajes más recientes
           try {
             const { data: latestChatTask } = await supabase
               .from('tasks')
@@ -2194,6 +2215,9 @@ export default function Home() {
               category: 'General',
               subtasks: finalList,
             });
+
+            // Disparar evento para que la otra pantalla refresque su historial de chat si el broadcast directo falló
+            sendBroadcast('data_changed', { entity: 'chat' });
           } catch (e) {
             console.error('Error syncing chat to cloud:', e);
           }

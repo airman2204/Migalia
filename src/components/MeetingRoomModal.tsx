@@ -23,6 +23,7 @@ import {
   FileText,
   Volume2,
   VolumeX,
+  RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { DEFAULT_PARTNERS } from '@/lib/initialData';
@@ -36,13 +37,17 @@ interface MeetingRoomModalProps {
   onSaveMinuta: (entry: Omit<LogbookEntry, 'id'>) => void;
 }
 
-// Configuración STUN pública de alta disponibilidad de Google
-const ICE_SERVERS = {
+// Configuración STUN redundante de alta disponibilidad para atravesar NAT y firewalls
+const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
@@ -90,6 +95,8 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const signalingChannelRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const [reconnectCounter, setReconnectCounter] = useState(0);
 
   // Identificación determinista del socio local y socio remoto
   // En Migalia solo hay dos socios fundadores: Mario (partner-1) y Susy (partner-2).
@@ -187,12 +194,16 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
   }, [stopAllMediaTracks, onClose, currentPartner?.id]);
 
   // ============================================================
-  // FLUJO DE CONEXIÓN WEBRTC P2P CON SUPABASE BROADCAST
+  // FLUJO DE CONEXIÓN WEBRTC P2P CON SUPABASE BROADCAST (W3C PERFECT NEGOTIATION)
   // ============================================================
   useEffect(() => {
     let localStream: MediaStream | null = null;
     let pc: RTCPeerConnection | null = null;
-    const myId = currentPartner?.id || (currentPartner?.shortName === 'Susy' ? 'partner-2' : 'partner-1');
+    const myId = isMarioLocal ? 'partner-1' : 'partner-2';
+    // Mario es el iniciador principal / oferente. Susy es el 'polite peer'
+    const isPolite = !isMarioLocal;
+    let makingOffer = false;
+    let ignoreOffer = false;
 
     async function initWebRTC() {
       try {
@@ -209,18 +220,19 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
           localVideoRef.current.srcObject = localStream;
         }
 
-        // 2. Crear RTCPeerConnection con STUN de Google
+        // 2. Crear RTCPeerConnection con STUN redundante
         pc = new RTCPeerConnection(ICE_SERVERS);
         peerConnectionRef.current = pc;
+        pendingCandidatesRef.current = [];
 
-        // Añadir tracks locales a la conexión para enviarlos al otro socio
+        // Añadir tracks locales a la conexión
         localStream.getTracks().forEach((track) => {
           pc?.addTrack(track, localStream!);
         });
 
         // 3. Al recibir video/audio remoto del otro socio
         pc.ontrack = (event) => {
-          console.log('[WebRTC] Track remoto recibido:', event.track.kind, event.streams);
+          console.log('[WebRTC] Track remoto recibido:', event.track.kind);
           const stream = event.streams[0] || new MediaStream([event.track]);
 
           if (remoteVideoRef.current) {
@@ -240,7 +252,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
           if (pc?.iceConnectionState === 'connected' || pc?.iceConnectionState === 'completed') {
             setConnectionStatus('connected');
           } else if (pc?.iceConnectionState === 'failed') {
-            pc?.restartIce?.();
+            try { pc?.restartIce?.(); } catch (e) {}
           } else if (pc?.iceConnectionState === 'disconnected') {
             setConnectionStatus('waiting');
           }
@@ -259,62 +271,90 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
               payload: {
                 senderId: myId,
                 type: 'candidate',
-                candidate: event.candidate,
+                candidate: event.candidate.toJSON(),
               },
             });
           }
         };
 
-        // Función para enviar una Offer limpia
+        // Función para drenar candidatos ICE pendientes una vez que remoteDescription esté lista
+        const drainPendingCandidates = async () => {
+          if (!pc || !pc.remoteDescription) return;
+          while (pendingCandidatesRef.current.length > 0) {
+            const cand = pendingCandidatesRef.current.shift();
+            if (cand) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(cand));
+              } catch (e) {
+                console.warn('[WebRTC] Error aplicando candidato en cola:', e);
+              }
+            }
+          }
+        };
+
+        // Función para crear y enviar Oferta de forma segura
         const createAndSendOffer = async () => {
           try {
-            if (!peerPcSafe()) return;
+            if (!pc || pc.signalingState === 'closed') return;
+            makingOffer = true;
             setConnectionStatus('connecting');
-            const offer = await pc!.createOffer();
-            await pc!.setLocalDescription(offer);
+            const offer = await pc.createOffer();
+            if (pc.signalingState !== 'stable') return;
+            await pc.setLocalDescription(offer);
             channel.send({
               type: 'broadcast',
               event: 'call_signal',
               payload: {
                 senderId: myId,
                 type: 'offer',
-                sdp: offer,
+                sdp: pc.localDescription,
               },
             });
           } catch (e) {
             console.error('[WebRTC] Error creando offer:', e);
+          } finally {
+            makingOffer = false;
           }
         };
 
-        const peerPcSafe = () => peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed';
-
-        // Escuchar eventos de señalización del otro socio
+        // Escuchar eventos de señalización del otro socio (Perfect Negotiation)
         channel.on('broadcast', { event: 'call_signal' }, async ({ payload }) => {
-          if (!payload || payload.senderId === myId) return; // Ignorar mis propios mensajes
+          if (!payload || payload.senderId === myId) return;
 
           const peerPc = peerConnectionRef.current;
           if (!peerPc || peerPc.signalingState === 'closed') return;
 
           try {
             if (payload.type === 'ready') {
-              // Si el otro socio avisa que está listo, iniciamos la oferta WebRTC
-              await createAndSendOffer();
-            } else if (payload.type === 'offer') {
-              // Manejo de colisión si ambos son 'have-local-offer'
-              if (peerPc.signalingState !== 'stable') {
-                if (myId < payload.senderId) {
-                  // Rollback para aceptar la oferta del otro
-                  await Promise.all([
-                    peerPc.setLocalDescription({ type: 'rollback' } as any),
-                    peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp)),
-                  ]);
-                } else {
-                  // Descartar si tengo prioridad
-                  return;
-                }
+              // Si el otro socio entra o se conecta, Mario (caller) genera la oferta
+              if (isMarioLocal) {
+                await createAndSendOffer();
               } else {
-                await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                // Susy responde con 'ready_ack' para sincronizar
+                channel.send({
+                  type: 'broadcast',
+                  event: 'call_signal',
+                  payload: { senderId: myId, type: 'ready_ack' },
+                });
               }
+            } else if (payload.type === 'ready_ack') {
+              if (isMarioLocal) {
+                await createAndSendOffer();
+              }
+            } else if (payload.type === 'offer') {
+              const offerCollision = makingOffer || peerPc.signalingState !== 'stable';
+              ignoreOffer = !isPolite && offerCollision;
+              if (ignoreOffer) {
+                return;
+              }
+
+              if (offerCollision && isPolite) {
+                // Rollback seguro para el polite peer
+                await peerPc.setLocalDescription({ type: 'rollback' } as any);
+              }
+
+              await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+              await drainPendingCandidates();
 
               const answer = await peerPc.createAnswer();
               await peerPc.setLocalDescription(answer);
@@ -324,20 +364,28 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                 payload: {
                   senderId: myId,
                   type: 'answer',
-                  sdp: answer,
+                  sdp: peerPc.localDescription,
                 },
               });
               setConnectionStatus('connecting');
             } else if (payload.type === 'answer') {
               if (peerPc.signalingState === 'have-local-offer') {
                 await peerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                await drainPendingCandidates();
                 setConnectionStatus('connected');
               }
             } else if (payload.type === 'candidate' && payload.candidate) {
-              try {
-                await peerPc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-              } catch (iceErr) {
-                console.warn('[WebRTC] Error agregando ICE Candidate:', iceErr);
+              if (peerPc.remoteDescription && peerPc.remoteDescription.type) {
+                try {
+                  await peerPc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                } catch (iceErr) {
+                  if (!ignoreOffer) {
+                    console.warn('[WebRTC] Error agregando ICE Candidate:', iceErr);
+                  }
+                }
+              } else {
+                // Guardar en cola para cuando remoteDescription esté asentada
+                pendingCandidatesRef.current.push(payload.candidate);
               }
             } else if (payload.type === 'user_left') {
               setConnectionStatus('waiting');
@@ -380,7 +428,7 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
       clearInterval(interval);
       stopAllMediaTracks();
     };
-  }, [stopAllMediaTracks, currentPartner?.id, currentPartner?.shortName]);
+  }, [stopAllMediaTracks, isMarioLocal, reconnectCounter]);
 
   // 2. Control de Captura de Notas con Reconocimiento de Voz
   useEffect(() => {
@@ -765,6 +813,19 @@ export const MeetingRoomModal: React.FC<MeetingRoomModalProps> = ({
                 title={isVideoEnabled ? 'Apagar cámara' : 'Encender cámara'}
               >
                 {isVideoEnabled ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setConnectionStatus('connecting');
+                  setReconnectCounter((prev) => prev + 1);
+                }}
+                className="p-3.5 rounded-2xl font-bold transition flex items-center gap-1.5 bg-stone-800 hover:bg-stone-700 text-amber-400 hover:text-amber-300 border border-stone-700"
+                title="Reconectar audio y video P2P"
+              >
+                <RefreshCw className="w-4 h-4 animate-spin-hover" />
+                <span className="hidden sm:inline text-xs font-semibold text-stone-300">Reconectar</span>
               </button>
 
               <button
