@@ -5,7 +5,7 @@ import { CustomerConversation, CustomerMessage } from '@/types';
 export const dynamic = 'force-dynamic';
 
 const DEFAULT_TOKEN =
-  'IGAANfgVCgKLdBZAFlZAVzFYNS0yZAnVYZAy11cWhFcURwbXNNSWVLck11ZA3lIaDlxMjZAXU0J1dkRZAdk9PNkw3OEpVdkJiNmRYckdMaEIxODBocDZAOWTJ3SUFSM1pIU0lIblhNbTl3dGphSk5jT1pncERqUlFyN0pHZATF3dkFBM09XVQZDZD';
+  'IGAANfgVCgKLdBZAGFlVFIyRllHMmtRUjFvYkZAOVVpKbjhfaEhRcUJQYUtkbmp4WDBYRTl2M1NsOEF2bUo4eGpCZAzlfX3dxcVJDcU5Xa2ZAkZAldHelI0cjB0NThwWmhVRWtqWEFveWlMUXFvZAGVScEx6M2FOeWh6OVBVeXc3QXAzcwZDZD';
 
 /**
  * GET/POST /api/instagram/sync
