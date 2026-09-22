@@ -37,6 +37,130 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    // Soporte directo para Zapier / Make / Webhook Relay plano:
+    // Si viene directamente con senderId / customerHandle / messageText
+    if (body.customerHandle || body.senderId || body.message || body.text) {
+      const senderHandle = body.customerHandle || (body.username ? `@${body.username}` : '@cliente_instagram');
+      const senderName = body.customerName || body.name || body.username || 'Cliente Instagram';
+      const senderAvatar = body.customerAvatar || body.profile_pic || undefined;
+      const messageText = body.message || body.text || body.content || '';
+      const convId = body.conversationId || `conv-ig-${(senderHandle || 'user').replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      if (messageText) {
+        // Cargar conversaciones existentes de Supabase
+        const { data: currentMeta } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', 'meta-customer-service')
+          .maybeSingle();
+
+        const existingConversations: CustomerConversation[] =
+          currentMeta && Array.isArray(currentMeta.subtasks) ? currentMeta.subtasks : [];
+
+        const convIndex = existingConversations.findIndex(
+          (c) => c.customerHandle.toLowerCase() === senderHandle.toLowerCase() || c.id === convId
+        );
+
+        let updatedConversations: CustomerConversation[];
+        if (convIndex >= 0) {
+          const updatedConv: CustomerConversation = {
+            ...existingConversations[convIndex],
+            customerName: senderName || existingConversations[convIndex].customerName,
+            customerHandle: senderHandle || existingConversations[convIndex].customerHandle,
+            customerAvatar: senderAvatar || existingConversations[convIndex].customerAvatar,
+            lastMessage: messageText,
+            lastMessageTime: 'Ahora',
+            unreadCount: (existingConversations[convIndex].unreadCount || 0) + 1,
+            status: 'pending',
+          };
+          updatedConversations = [
+            updatedConv,
+            ...existingConversations.filter((_, idx) => idx !== convIndex),
+          ];
+        } else {
+          const newConv: CustomerConversation = {
+            id: convId,
+            platform: 'instagram',
+            customerHandle: senderHandle,
+            customerName: senderName,
+            customerAvatar: senderAvatar,
+            lastMessage: messageText,
+            lastMessageTime: 'Ahora',
+            unreadCount: 1,
+            status: 'pending',
+            category: 'General',
+            createdAt: new Date().toISOString().split('T')[0],
+            tags: ['Nuevo DM', 'Instagram Oficial'],
+          };
+          updatedConversations = [newConv, ...existingConversations];
+        }
+
+        // Actualizar mensajes
+        const { data: currentMsgsMeta } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', 'meta-customer-messages')
+          .maybeSingle();
+
+        const existingMessagesMap: Record<string, CustomerMessage[]> =
+          currentMsgsMeta && currentMsgsMeta.subtasks && typeof currentMsgsMeta.subtasks === 'object'
+            ? Array.isArray(currentMsgsMeta.subtasks)
+              ? currentMsgsMeta.subtasks[0] || {}
+              : currentMsgsMeta.subtasks
+            : {};
+
+        const existingList = existingMessagesMap[convId] || [];
+        const timeStr = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+        const newMsg: CustomerMessage = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          conversationId: convId,
+          sender: 'customer',
+          senderName: senderName,
+          content: messageText,
+          timestamp: timeStr,
+          status: 'sent',
+        };
+
+        const updatedMessagesMap = {
+          ...existingMessagesMap,
+          [convId]: [...existingList, newMsg],
+        };
+
+        await supabase.from('tasks').upsert({
+          id: 'meta-customer-service',
+          title: 'Bandeja de Atención a Clientes (Instagram DMs & CRM)',
+          description: 'Conversaciones y prospectos de redes sociales',
+          status: 'done',
+          priority: 'medium',
+          assigned_to: 'partner-1',
+          category: 'Ventas',
+          subtasks: updatedConversations,
+        });
+
+        await supabase.from('tasks').upsert({
+          id: 'meta-customer-messages',
+          title: 'Historial de Mensajes de Clientes (Instagram & CRM)',
+          description: 'Mensajes individuales indexados por ID de conversación',
+          status: 'done',
+          priority: 'medium',
+          assigned_to: 'partner-1',
+          category: 'Ventas',
+          subtasks: [updatedMessagesMap],
+        });
+
+        try {
+          supabase.channel('migalia_presence').send({
+            type: 'broadcast',
+            event: 'data_changed',
+            payload: { entity: 'customer_service' },
+          });
+        } catch (e) {}
+
+        return NextResponse.json({ status: 'EVENT_RECEIVED', success: true }, { status: 200 });
+      }
+    }
+
     if (body.object === 'instagram' || body.object === 'page') {
       const entries = body.entry || [];
 
