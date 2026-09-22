@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           [convId]: [...existingList, newMsg],
         };
 
-        await supabase.from('tasks').upsert({
+        const { error: upsertErr1 } = await supabase.from('tasks').upsert({
           id: 'meta-customer-service',
           title: 'Bandeja de Atención a Clientes (Instagram DMs & CRM)',
           description: 'Conversaciones y prospectos de redes sociales',
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
           subtasks: updatedConversations,
         });
 
-        await supabase.from('tasks').upsert({
+        const { error: upsertErr2 } = await supabase.from('tasks').upsert({
           id: 'meta-customer-messages',
           title: 'Historial de Mensajes de Clientes (Instagram & CRM)',
           description: 'Mensajes individuales indexados por ID de conversación',
@@ -173,7 +173,13 @@ export async function POST(request: NextRequest) {
           });
         } catch (e) {}
 
-        return NextResponse.json({ status: 'EVENT_RECEIVED', success: true }, { status: 200 });
+        return NextResponse.json({
+          status: 'EVENT_RECEIVED',
+          success: true,
+          convCount: updatedConversations.length,
+          upsertErr1: upsertErr1?.message || null,
+          upsertErr2: upsertErr2?.message || null,
+        }, { status: 200 });
       }
     }
 
