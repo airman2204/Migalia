@@ -22,7 +22,10 @@ export async function POST(request: NextRequest) {
 
 async function handleSync(request: NextRequest) {
   try {
-    const token = process.env.INSTAGRAM_USER_ACCESS_TOKEN || DEFAULT_TOKEN;
+    const token =
+      process.env.INSTAGRAM_USER_ACCESS_TOKEN && !process.env.INSTAGRAM_USER_ACCESS_TOKEN.includes('FlZAVzFY')
+        ? process.env.INSTAGRAM_USER_ACCESS_TOKEN
+        : DEFAULT_TOKEN;
 
     // 1. Consultar conversaciones en Instagram Graph API
     const igRes = await fetch(
