@@ -15,6 +15,11 @@ async function buildClient(): Promise<IgApiClient> {
   const ig = new IgApiClient();
   ig.state.generateDevice(IG_USERNAME);
 
+  // Actualizar firma y versión de app a versión reciente de Instagram Android
+  ig.state.appVersion = '315.0.0.38.109';
+  ig.state.appVersionCode = '563143521';
+  ig.state.deviceString = '315.0.0.38.109; 480dpi; 1080x2400; Xiaomi/POCO; POCO X3 Pro; vayu; qcom; es_ES; 563143521';
+
   // Intentar restaurar sesión guardada en Supabase
   const { data: sessionRow } = await supabase
     .from('tasks')
