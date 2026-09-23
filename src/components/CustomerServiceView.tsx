@@ -177,14 +177,22 @@ export const CustomerServiceView: React.FC<CustomerServiceViewProps> = ({
 
   const simulateSync = async () => {
     setIsSyncing(true);
-    if (onRefresh) {
-      try {
+    try {
+      // Primero intentar el nuevo endpoint Private API (sin aprobación de Meta)
+      const res = await fetch('/api/instagram/dm-poll', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success && onRefresh) {
         await onRefresh();
-      } catch (e) {}
+      } else if (!data.success) {
+        // Fallback al sync con token oficial
+        if (onRefresh) await onRefresh();
+      }
+    } catch (e) {
+      if (onRefresh) {
+        try { await onRefresh(); } catch (e2) {}
+      }
     }
-    setTimeout(() => {
-      setIsSyncing(false);
-    }, 800);
+    setTimeout(() => setIsSyncing(false), 800);
   };
 
   const getStatusBadge = (status: CustomerConversation['status']) => {

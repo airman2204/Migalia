@@ -46,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'tasks', label: 'Lista de Actividades', icon: <FolderKanban className="w-4 h-4" />, badge: counts.total },
     { id: 'kanban', label: 'Tablero Kanban', icon: <Columns3 className="w-4 h-4" /> },
     { id: 'recipes', label: 'Recetario & Costeo', icon: <ChefHat className="w-4 h-4" />, badge: counts.recipes },
+    { id: 'customer_service', label: 'Clientes Instagram', icon: <MessageCircleHeart className="w-4 h-4" />, badge: counts.customers },
     { id: 'documents', label: 'Documentación', icon: <Files className="w-4 h-4" />, badge: counts.documents },
     { id: 'logbook', label: 'Bitácora & Minutas', icon: <BookOpen className="w-4 h-4" />, badge: counts.logbook },
     { id: 'milestones', label: 'Hitos & Cronograma', icon: <CalendarRange className="w-4 h-4" />, badge: counts.milestones },
