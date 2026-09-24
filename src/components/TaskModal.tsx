@@ -297,7 +297,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   <input
                     type="number"
                     min="0"
-                    step="100"
+                    step="any"
                     placeholder="0.00"
                     value={estimatedCost}
                     onChange={(e) => setEstimatedCost(e.target.value)}
@@ -314,7 +314,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   <input
                     type="number"
                     min="0"
-                    step="100"
+                    step="any"
                     placeholder="0.00"
                     value={actualCost}
                     onChange={(e) => setActualCost(e.target.value)}
