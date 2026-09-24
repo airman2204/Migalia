@@ -109,57 +109,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Selector de Tablero: Actividades de Proyecto vs Tablero de Pedidos */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-[#E6DFD5] shadow-xs">
-        <div className="flex items-center gap-1.5 p-1 bg-[#F8F6F0] rounded-xl border border-[#E6DFD5]">
-          <button
-            onClick={() => setBoardMode('tasks')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              boardMode === 'tasks'
-                ? 'bg-[#221F1D] text-amber-400 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-            }`}
-          >
-            <FolderKanban className="w-3.5 h-3.5" />
-            <span>Actividades de Proyecto</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-              boardMode === 'tasks' ? 'bg-stone-800 text-amber-300' : 'bg-stone-200 text-stone-600'
-            }`}>
-              {standardTasksCount}
-            </span>
-          </button>
+      {/* Selector de Tablero: temporalmente oculto a solicitud (solo actividades de proyecto) */}
 
-          <button
-            onClick={() => setBoardMode('orders')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              boardMode === 'orders'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-stone-600 hover:text-amber-800 hover:bg-amber-100/60'
-            }`}
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Tablero de Pedidos & Eventos</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-              boardMode === 'orders' ? 'bg-amber-800 text-white' : 'bg-amber-100 text-amber-800'
-            }`}>
-              {orderTasksCount}
-            </span>
-          </button>
-        </div>
-
-        <div className="text-xs text-[#6E665D] flex items-center gap-2">
-          {boardMode === 'orders' ? (
-            <span className="inline-flex items-center gap-1.5 font-medium text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-              <Sparkles className="w-3 h-3 text-amber-600" />
-              Flujo de Producción: Cotizado ➔ Horneado ➔ Entrega
-            </span>
-          ) : (
-            <span className="text-stone-500">
-              Flujo de Obra, Legal, Recetas & Equipamiento
-            </span>
-          )}
-        </div>
-      </div>
 
       {/* Banner de Impacto y Alerta de Fechas Límite */}
       {overdueMetrics.overdueCount > 0 ? (
