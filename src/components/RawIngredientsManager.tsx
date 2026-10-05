@@ -41,10 +41,10 @@ export const RawIngredientsManager: React.FC<RawIngredientsManagerProps> = ({
   // Form State
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState('Harinas & Polvos');
-  const [formPurchasePackage, setFormPurchasePackage] = useState('Bulto 25 kg');
-  const [formPackageQuantity, setFormPackageQuantity] = useState<number | string>(25);
+  const [formPurchasePackage, setFormPurchasePackage] = useState('');
+  const [formPackageQuantity, setFormPackageQuantity] = useState<number | string>('');
   const [formPackageUnit, setFormPackageUnit] = useState<'KG' | 'LT' | 'PZA' | 'G' | 'ML'>('KG');
-  const [formPackageCost, setFormPackageCost] = useState<number | string>(550);
+  const [formPackageCost, setFormPackageCost] = useState<number | string>('');
   const [formYield, setFormYield] = useState<number | string>(100);
   const [formSupplier, setFormSupplier] = useState('');
   const [formNotes, setFormNotes] = useState('');
@@ -107,10 +107,10 @@ export const RawIngredientsManager: React.FC<RawIngredientsManagerProps> = ({
     setEditingItem(null);
     setFormName('');
     setFormCategory('Harinas & Polvos');
-    setFormPurchasePackage('Bulto / Costal 25 kg');
-    setFormPackageQuantity(25);
+    setFormPurchasePackage('');
+    setFormPackageQuantity('');
     setFormPackageUnit('KG');
-    setFormPackageCost(550);
+    setFormPackageCost('');
     setFormYield(100);
     setFormSupplier('');
     setFormNotes('');
@@ -213,48 +213,13 @@ export const RawIngredientsManager: React.FC<RawIngredientsManagerProps> = ({
         </div>
       </div>
 
-      {/* Ejemplos Didácticos Rápidos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-[#FAF8F5] border border-[#E6DFD5] rounded-xl p-3.5 flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 text-xs font-bold">
-            25kg
-          </div>
-          <div>
-            <p className="text-xs font-bold text-[#221F1D]">Bulto de Harina (25 kg en $550)</p>
-            <p className="text-[11px] text-stone-600 mt-0.5">
-              Equivale a <strong>$22.00 / kg</strong> ($0.022/g).
-              <br />
-              <span className="text-emerald-700 font-semibold">300 g en tu receta = $6.60 MXN</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-[#FAF8F5] border border-[#E6DFD5] rounded-xl p-3.5 flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 text-xs font-bold">
-            10kg
-          </div>
-          <div>
-            <p className="text-xs font-bold text-[#221F1D]">Mantequilla 10 kg en $1,600</p>
-            <p className="text-[11px] text-stone-600 mt-0.5">
-              Equivale a <strong>$160.00 / kg</strong> ($0.16/g).
-              <br />
-              <span className="text-emerald-700 font-semibold">350 g en tu receta = $56.00 MXN</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-[#FAF8F5] border border-[#E6DFD5] rounded-xl p-3.5 flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 text-xs font-bold">
-            1k
-          </div>
-          <div>
-            <p className="text-xs font-bold text-[#221F1D]">Empaque Conos (1,000 pzas en $3,200)</p>
-            <p className="text-[11px] text-stone-600 mt-0.5">
-              Equivale a <strong>$3.20 / cono</strong>.
-              <br />
-              <span className="text-emerald-700 font-semibold">20 conos por lote = $64.00 MXN</span>
-            </p>
-          </div>
+      {/* Banner Informativo Limpio sin datos simulados */}
+      <div className="bg-[#FAF8F5] border border-[#E6DFD5] rounded-xl p-3.5 flex items-center justify-between text-xs text-stone-600">
+        <div className="flex items-center gap-2">
+          <Scale className="w-4 h-4 text-amber-700 shrink-0" />
+          <span>
+            Da de alta tus materias primas con su costo de compra y cantidad. Las recetas convertirán automáticamente entre <strong>kilos y gramos</strong> o <strong>litros y mililitros</strong>.
+          </span>
         </div>
       </div>
 

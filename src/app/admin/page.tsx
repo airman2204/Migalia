@@ -148,10 +148,10 @@ export default function Home() {
       const local = localStorage.getItem('migalia_raw_ingredients');
       if (local !== null) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
-    return INITIAL_RAW_INGREDIENTS;
+    return [];
   });
   const [documents, setDocuments] = useState<MigaliaDocument[]>(() => {
     try {
