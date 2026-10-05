@@ -140,6 +140,39 @@ export interface RecipeIngredient {
   totalCost: number;
   /** Define si el renglón actúa como separador visual de sub-receta */
   isSubrecipeTitle?: boolean;
+  /** ID del insumo base seleccionado del catálogo maestro (opcional) */
+  rawIngredientId?: string;
+}
+
+/**
+ * Insumo general / Materia prima en presentación comercial mayorista o minorista.
+ * Permite calcular el costo unitario por gramo, mililitro o pieza (ej. Bulto de harina 25kg en $450 => $18/kg => $0.018/g).
+ */
+export interface RawIngredient {
+  id: string;
+  /** Nombre del insumo o materia prima (ej. Harina de Trigo San Antonio) */
+  name: string;
+  /** Categoría (ej. Harinas & Polvos, Lácteos & Grasas, Azúcares, Chocolates & Coberturas, Frutas & Frutos Secos, Empaques, Especias & Extractos) */
+  category: string;
+  /** Presentación de compra (ej. Bulto 25 kg, Costal 50 kg, Caja 10 kg, Barra 1 kg, Bote 4 lt, Cubeta 19 lt, Pieza) */
+  purchasePackage: string;
+  /** Cantidad que contiene el empaque (ej. 25, 50, 1, 4) */
+  packageQuantity: number;
+  /** Unidad del empaque (KG, LT, PZA, G, ML) */
+  packageUnit: 'KG' | 'LT' | 'PZA' | 'G' | 'ML';
+  /** Precio total pagado por el empaque/costal en MXN */
+  packageCost: number;
+  /** Rendimiento utilizable (%) - merma o aprovechamiento (ej. 100 para harina, 90 para fruta con merma) */
+  yieldPercentage?: number;
+  /** Costo calculado por unidad estándar base (por 1 KG, por 1 LT o por 1 PZA) */
+  costPerBaseUnit: number;
+  /** Unidad base calculada (KG, LT, PZA) */
+  baseUnit: 'KG' | 'LT' | 'PZA';
+  /** Proveedor preferido (ej. Central de Abastos, Costco, Abastecedora La Suiza, Puratos) */
+  supplier?: string;
+  /** Notas o especificaciones */
+  notes?: string;
+  updatedAt?: string;
 }
 
 /**

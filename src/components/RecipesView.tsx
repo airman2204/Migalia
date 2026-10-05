@@ -1,23 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Recipe } from '@/types';
-import { ChefHat, Plus, Printer, Edit3, Trash2, Search, DollarSign, Sparkles, X } from 'lucide-react';
+import { Recipe, RawIngredient } from '@/types';
+import { ChefHat, Plus, Printer, Edit3, Trash2, Search, DollarSign, Sparkles, X, Package, Layers } from 'lucide-react';
 import { RecipePrintSheet } from './RecipePrintSheet';
+import { RawIngredientsManager } from './RawIngredientsManager';
 
 interface RecipesViewProps {
   recipes: Recipe[];
+  rawIngredients: RawIngredient[];
   onOpenNewRecipe: () => void;
   onSelectRecipe: (recipe: Recipe) => void;
   onDeleteRecipe: (recipeId: string) => void;
+  onSaveRawIngredient: (ingredient: RawIngredient) => void;
+  onDeleteRawIngredient: (id: string) => void;
 }
 
 export const RecipesView: React.FC<RecipesViewProps> = ({
   recipes,
+  rawIngredients,
   onOpenNewRecipe,
   onSelectRecipe,
   onDeleteRecipe,
+  onSaveRawIngredient,
+  onDeleteRawIngredient,
 }) => {
+  const [viewTab, setViewTab] = useState<'recipes' | 'ingredients'>('recipes');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [printRecipe, setPrintRecipe] = useState<Recipe | null>(null);
@@ -93,7 +101,7 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {recipes.length > 0 && (
+          {viewTab === 'recipes' && recipes.length > 0 && (
             <button
               onClick={handlePrintAll}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-[#221F1D] border border-[#DDD5C7] hover:bg-[#F2EEE9] transition-all shadow-2xs"
@@ -103,42 +111,86 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
             </button>
           )}
 
-          <button
-            onClick={onOpenNewRecipe}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] hover:bg-[#34302C] transition-all shadow-sm"
-          >
-            <Plus className="w-4 h-4 text-[#C59B27]" />
-            <span>Nueva Ficha Técnica</span>
-          </button>
+          {viewTab === 'recipes' && (
+            <button
+              onClick={onOpenNewRecipe}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#221F1D] text-[#F8F6F0] hover:bg-[#34302C] transition-all shadow-sm"
+            >
+              <Plus className="w-4 h-4 text-[#C59B27]" />
+              <span>Nueva Ficha Técnica</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Stats Quick Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-white p-4 rounded-xl border border-[#E6DFD5] shadow-2xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-[#6E665D]">Total Fichas Técnicas</p>
-            <p className="text-xl font-bold text-[#221F1D] mt-0.5">{recipes.length}</p>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-[#F8F6F0] flex items-center justify-center text-[#C59B27]">
-            <ChefHat className="w-5 h-5" />
-          </div>
-        </div>
+      {/* Selector de Submódulo: Fichas Técnicas vs Catálogo de Insumos & Costales */}
+      <div className="bg-[#FAF8F5] p-1.5 rounded-2xl border border-[#E6DFD5] flex items-center gap-1.5 w-fit">
+        <button
+          onClick={() => setViewTab('recipes')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            viewTab === 'recipes'
+              ? 'bg-[#221F1D] text-amber-400 shadow-xs'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <ChefHat className="w-4 h-4" />
+          <span>Fichas Técnicas & Recetario ({recipes.length})</span>
+        </button>
 
-        <div className="bg-white p-4 rounded-xl border border-[#E6DFD5] shadow-2xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-[#6E665D]">Costo Promedio / Receta</p>
-            <p className="text-xl font-bold text-[#221F1D] mt-0.5">
-              ${recipes.length > 0
-                ? (recipes.reduce((sum, r) => sum + getRecipeTotalCost(r), 0) / recipes.length).toFixed(2)
-                : '0.00'}
-            </p>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-[#F8F6F0] flex items-center justify-center text-[#8C6239]">
-            <DollarSign className="w-5 h-5" />
-          </div>
-        </div>
+        <button
+          onClick={() => setViewTab('ingredients')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            viewTab === 'ingredients'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'text-stone-600 hover:text-amber-800 hover:bg-amber-100/60'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>Insumos Generales & Costales ({rawIngredients.length})</span>
+          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+            viewTab === 'ingredients' ? 'bg-amber-800 text-white' : 'bg-amber-100 text-amber-800'
+          }`}>
+            Costeo Base
+          </span>
+        </button>
       </div>
+
+      {/* Renderizado condicional según submódulo activo */}
+      {viewTab === 'ingredients' ? (
+        <RawIngredientsManager
+          rawIngredients={rawIngredients}
+          onSaveIngredient={onSaveRawIngredient}
+          onDeleteIngredient={onDeleteRawIngredient}
+          onClose={() => setViewTab('recipes')}
+        />
+      ) : (
+        <>
+          {/* Stats Quick Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-white p-4 rounded-xl border border-[#E6DFD5] shadow-2xs flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-medium text-[#6E665D]">Total Fichas Técnicas</p>
+                <p className="text-xl font-bold text-[#221F1D] mt-0.5">{recipes.length}</p>
+              </div>
+              <div className="w-9 h-9 rounded-lg bg-[#F8F6F0] flex items-center justify-center text-[#C59B27]">
+                <ChefHat className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-[#E6DFD5] shadow-2xs flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-medium text-[#6E665D]">Costo Promedio / Receta</p>
+                <p className="text-xl font-bold text-[#221F1D] mt-0.5">
+                  ${recipes.length > 0
+                    ? (recipes.reduce((sum, r) => sum + getRecipeTotalCost(r), 0) / recipes.length).toFixed(2)
+                    : '0.00'}
+                </p>
+              </div>
+              <div className="w-9 h-9 rounded-lg bg-[#F8F6F0] flex items-center justify-center text-[#8C6239]">
+                <DollarSign className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-3 rounded-xl border border-[#E6DFD5] shadow-2xs flex flex-col sm:flex-row items-center gap-3">
@@ -281,7 +333,9 @@ export const RecipesView: React.FC<RecipesViewProps> = ({
           })}
         </div>
       )}
-      </div>
+      </>
+    )}
+    </div>
 
       {/* Modal / Overlay para Impresión de Receta Individual */}
       {printRecipe && (

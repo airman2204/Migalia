@@ -36,6 +36,7 @@ import {
   INITIAL_MILESTONES,
   INITIAL_RECIPES,
   INITIAL_DOCUMENTS,
+  INITIAL_RAW_INGREDIENTS,
 } from '@/lib/initialData';
 import { INITIAL_CONVERSATIONS, INITIAL_MESSAGES } from '@/lib/initialCustomerData';
 import {
@@ -45,6 +46,7 @@ import {
   Milestone,
   Partner,
   Recipe,
+  RawIngredient,
   MigaliaDocument,
   ScheduledMeeting,
   ChatMessage,
@@ -140,6 +142,16 @@ export default function Home() {
       }
     } catch (e) {}
     return [];
+  });
+  const [rawIngredients, setRawIngredients] = useState<RawIngredient[]>(() => {
+    try {
+      const local = localStorage.getItem('migalia_raw_ingredients');
+      if (local !== null) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_RAW_INGREDIENTS;
   });
   const [documents, setDocuments] = useState<MigaliaDocument[]>(() => {
     try {
@@ -437,6 +449,15 @@ export default function Home() {
           } catch (e) {}
         }
         } // end if (!isSavingRecipeRef.current)
+
+        // Extraer catálogo maestro de insumos y materias primas (costales, bultos, etc.)
+        const rawIngredientsMeta = dbTasks.find((t) => t.id === 'meta-raw-ingredients');
+        if (rawIngredientsMeta && Array.isArray(rawIngredientsMeta.subtasks) && rawIngredientsMeta.subtasks.length > 0) {
+          setRawIngredients(rawIngredientsMeta.subtasks);
+          try {
+            localStorage.setItem('migalia_raw_ingredients', JSON.stringify(rawIngredientsMeta.subtasks));
+          } catch (e) {}
+        }
 
         // Extraer documentos compartidos si existen en la nube
         const docsMeta = dbTasks.find((t) => t.id === 'meta-docs-vault');
@@ -1340,6 +1361,105 @@ export default function Home() {
     }
   };
 
+  // 6.1 Operaciones del Catálogo Maestro de Insumos & Materias Primas (Costales, bultos, etc.)
+  const handleSaveRawIngredient = async (ingredientData: RawIngredient) => {
+    // 1. Actualización optimista local
+    setRawIngredients((prev) => {
+      const exists = prev.some((item) => item.id === ingredientData.id);
+      const updated = exists
+        ? prev.map((item) => (item.id === ingredientData.id ? ingredientData : item))
+        : [ingredientData, ...prev];
+      try {
+        localStorage.setItem('migalia_raw_ingredients', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      // 2. Traer catálogo de Supabase para mezclar
+      const { data: currentMeta } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', 'meta-raw-ingredients')
+        .maybeSingle();
+
+      const remoteList: RawIngredient[] =
+        currentMeta && Array.isArray(currentMeta.subtasks) ? currentMeta.subtasks : [];
+
+      const map = new Map<string, RawIngredient>();
+      remoteList.forEach((r) => {
+        if (r?.id) map.set(r.id, r);
+      });
+      map.set(ingredientData.id, ingredientData);
+      const finalItems = Array.from(map.values());
+
+      // 3. Persistir en Supabase
+      const { error } = await supabase.from('tasks').upsert({
+        id: 'meta-raw-ingredients',
+        title: 'Catálogo Maestro de Insumos y Materias Primas',
+        description: 'Costeo de bultos, costales y materias primas',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-2',
+        category: 'Operaciones',
+        subtasks: finalItems,
+      });
+
+      if (!error) {
+        setRawIngredients(finalItems);
+        try {
+          localStorage.setItem('migalia_raw_ingredients', JSON.stringify(finalItems));
+        } catch (e) {}
+        sendBroadcast('data_changed', { entity: 'raw_ingredients' });
+      }
+    } catch (e) {
+      console.error('Error al guardar materia prima en Supabase:', e);
+    }
+  };
+
+  const handleDeleteRawIngredient = async (id: string) => {
+    setRawIngredients((prev) => {
+      const updated = prev.filter((item) => item.id !== id);
+      try {
+        localStorage.setItem('migalia_raw_ingredients', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      const { data: currentMeta } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', 'meta-raw-ingredients')
+        .maybeSingle();
+
+      const remoteList: RawIngredient[] =
+        currentMeta && Array.isArray(currentMeta.subtasks) ? currentMeta.subtasks : [];
+      const finalCleaned = remoteList.filter((item) => item.id !== id);
+
+      const { error } = await supabase.from('tasks').upsert({
+        id: 'meta-raw-ingredients',
+        title: 'Catálogo Maestro de Insumos y Materias Primas',
+        description: 'Costeo de bultos, costales y materias primas',
+        status: 'done',
+        priority: 'medium',
+        assigned_to: currentPartner?.id || 'partner-2',
+        category: 'Operaciones',
+        subtasks: finalCleaned,
+      });
+
+      if (!error) {
+        setRawIngredients(finalCleaned);
+        try {
+          localStorage.setItem('migalia_raw_ingredients', JSON.stringify(finalCleaned));
+        } catch (e) {}
+        sendBroadcast('data_changed', { entity: 'raw_ingredients' });
+      }
+    } catch (e) {
+      console.error('Error al eliminar materia prima en Supabase:', e);
+    }
+  };
+
   // 7. Operaciones de Documentos & Archivos (Docs, Sheets, Google Embed)
   const handleSaveDocument = async (docData: MigaliaDocument) => {
     const exists = documents.some((d) => d.id === docData.id);
@@ -1948,6 +2068,7 @@ export default function Home() {
           {activeTab === 'recipes' && (
             <RecipesView
               recipes={recipes}
+              rawIngredients={rawIngredients}
               onOpenNewRecipe={() => {
                 setSelectedRecipe(null);
                 setIsRecipeModalOpen(true);
@@ -1957,6 +2078,8 @@ export default function Home() {
                 setIsRecipeModalOpen(true);
               }}
               onDeleteRecipe={handleDeleteRecipe}
+              onSaveRawIngredient={handleSaveRawIngredient}
+              onDeleteRawIngredient={handleDeleteRawIngredient}
             />
           )}
 
@@ -2129,6 +2252,7 @@ export default function Home() {
         }}
         onSaveRecipe={handleSaveRecipe}
         onDeleteRecipe={handleDeleteRecipe}
+        rawIngredients={rawIngredients}
       />
 
       {/* Modal de Configuración */}

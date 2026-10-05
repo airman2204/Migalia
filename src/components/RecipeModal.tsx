@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Recipe, RecipeIngredient } from '@/types';
-import { X, Plus, Trash2, Calculator, Layers, ArrowDown } from 'lucide-react';
+import { Recipe, RecipeIngredient, RawIngredient } from '@/types';
+import { X, Plus, Trash2, Calculator, Layers, ArrowDown, Package, Sparkles } from 'lucide-react';
 
 interface RecipeModalProps {
   recipe: Recipe | null;
@@ -10,6 +10,7 @@ interface RecipeModalProps {
   onClose: () => void;
   onSaveRecipe: (recipe: Recipe) => void;
   onDeleteRecipe?: (recipeId: string) => void;
+  rawIngredients?: RawIngredient[];
 }
 
 // Convierte valores numéricos, enteros y fracciones como '1/2', '1/4', '3/4', '1 1/2' a decimal para el cálculo de costos
@@ -45,6 +46,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   onClose,
   onSaveRecipe,
   onDeleteRecipe,
+  rawIngredients = [],
 }) => {
   const [title, setTitle] = useState(recipe?.title || '');
   const [yieldCount, setYieldCount] = useState(recipe?.yieldCount || '10 PERSONAS');
@@ -117,16 +119,56 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Calcula el costo total tomando en cuenta unidades compuestas (G vs KG, ML vs LT)
+  const computeItemTotalCost = (qtyVal: string | number, unitVal: string, costVal: number) => {
+    const q = parseFractionToDecimal(qtyVal);
+    const c = Number(costVal) || 0;
+    const u = String(unitVal || 'KG').toUpperCase();
+
+    // Si la unidad es 'G' y el costo unitario está registrado por KG (base estándar)
+    // El costo unitario de insumo generalmente se introduce por KG o por LT
+    if (u === 'G') {
+      return Math.round((q / 1000) * c * 100) / 100;
+    }
+    if (u === 'ML') {
+      return Math.round((q / 1000) * c * 100) / 100;
+    }
+    return Math.round(q * c * 100) / 100;
+  };
+
   // Manejo de Ingredientes
   const handleIngredientChange = (idx: number, field: keyof RecipeIngredient, val: any) => {
     const updated = [...ingredients];
     const current = { ...updated[idx], [field]: val };
 
-    if (field === 'quantity' || field === 'unitCost') {
-      const q = field === 'quantity' ? parseFractionToDecimal(val) : parseFractionToDecimal(current.quantity);
-      const c = field === 'unitCost' ? Number(val) || 0 : Number(current.unitCost) || 0;
-      current.totalCost = Math.round(q * c * 100) / 100;
+    if (field === 'quantity' || field === 'unitCost' || field === 'unit') {
+      current.totalCost = computeItemTotalCost(
+        current.quantity,
+        current.unit,
+        current.unitCost
+      );
     }
+
+    updated[idx] = current;
+    setIngredients(updated);
+  };
+
+  // Cuando el usuario selecciona un insumo del catálogo maestro de compras
+  const handleSelectRawIngredient = (idx: number, rawId: string) => {
+    const raw = rawIngredients.find((r) => r.id === rawId);
+    if (!raw) return;
+
+    const updated = [...ingredients];
+    const current = { ...updated[idx] };
+
+    current.rawIngredientId = raw.id;
+    current.name = raw.name;
+    // Si la unidad actual es C/S o no está seteada, adaptar a la del insumo
+    if (!current.unit || current.unit === 'C/S') {
+      current.unit = raw.baseUnit;
+    }
+    current.unitCost = raw.costPerBaseUnit;
+    current.totalCost = computeItemTotalCost(current.quantity, current.unit, current.unitCost);
 
     updated[idx] = current;
     setIngredients(updated);
@@ -379,32 +421,62 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                       return (
                         <tr key={ing.id || idx} className="hover:bg-[#FAF8F5]/60">
                           <td className="p-2 pl-3">
-                            <input
-                              type="text"
-                              value={ing.name}
-                              onChange={(e) => handleIngredientChange(idx, 'name', e.target.value)}
-                              placeholder="Ej. QUESO CHIHUAHUA / HARINA"
-                              className="w-full text-xs bg-transparent text-[#221F1D] focus:outline-none uppercase font-medium"
-                              required
-                            />
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={ing.name}
+                                onChange={(e) => handleIngredientChange(idx, 'name', e.target.value)}
+                                placeholder="Ej. QUESO CHIHUAHUA / HARINA"
+                                className="w-full text-xs bg-transparent text-[#221F1D] focus:outline-none uppercase font-semibold"
+                                required
+                              />
+                              {rawIngredients.length > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] uppercase font-bold text-amber-800 tracking-wider flex items-center gap-0.5">
+                                    <Package className="w-2.5 h-2.5" />
+                                    Vincular:
+                                  </span>
+                                  <select
+                                    value={ing.rawIngredientId || ''}
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        handleSelectRawIngredient(idx, e.target.value);
+                                      } else {
+                                        handleIngredientChange(idx, 'rawIngredientId', undefined);
+                                      }
+                                    }}
+                                    className="text-[10px] bg-amber-50/80 border border-amber-200 text-stone-700 rounded px-1 py-0.5 max-w-[220px] truncate focus:outline-none"
+                                  >
+                                    <option value="">(Elegir de Catálogo de Insumos)</option>
+                                    {rawIngredients.map((raw) => (
+                                      <option key={raw.id} value={raw.id}>
+                                        {raw.name} — ${raw.costPerBaseUnit.toFixed(2)}/{raw.baseUnit}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 text-center">
                             <input
                               type="text"
                               value={ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : ''}
                               onChange={(e) => handleIngredientChange(idx, 'quantity', e.target.value)}
-                              placeholder="Ej. 1/2 o 0.250"
-                              className="w-24 text-center text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-1.5 py-1 text-[#221F1D] focus:outline-none focus:border-[#C59B27] font-medium"
+                              placeholder="Ej. 300 o 0.300"
+                              className="w-24 text-center text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-1.5 py-1 text-[#221F1D] focus:outline-none focus:border-[#C59B27] font-bold"
                             />
                           </td>
                           <td className="p-2 text-center">
                             <select
                               value={ing.unit}
                               onChange={(e) => handleIngredientChange(idx, 'unit', e.target.value)}
-                              className="text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-2 py-1 text-[#221F1D] focus:outline-none font-medium"
+                              className="text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-2 py-1 text-[#221F1D] focus:outline-none font-bold"
                             >
-                              <option value="KG">KG</option>
-                              <option value="LT">LT</option>
+                              <option value="G">G (Gramos)</option>
+                              <option value="KG">KG (Kilos)</option>
+                              <option value="ML">ML (Mililitros)</option>
+                              <option value="LT">LT (Litros)</option>
                               <option value="PZA">PZA</option>
                               <option value="TAZA">TAZA</option>
                               <option value="TBSP">TBSP</option>
@@ -413,17 +485,22 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                             </select>
                           </td>
                           <td className="p-2 text-right">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={ing.unitCost || ''}
-                              onChange={(e) => handleIngredientChange(idx, 'unitCost', e.target.value)}
-                              placeholder="0.00"
-                              className="w-20 text-right text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-1.5 py-1 text-[#221F1D] focus:outline-none focus:border-[#C59B27]"
-                            />
+                            <div className="flex flex-col items-end">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={ing.unitCost || ''}
+                                onChange={(e) => handleIngredientChange(idx, 'unitCost', e.target.value)}
+                                placeholder="0.00"
+                                className="w-24 text-right text-xs bg-[#FFFFFF] border border-[#E6DFD5] rounded-lg px-1.5 py-1 text-[#221F1D] focus:outline-none focus:border-[#C59B27] font-medium"
+                              />
+                              <span className="text-[9px] text-stone-400 mt-0.5">
+                                {ing.unit === 'G' || ing.unit === 'KG' ? '$/kg' : ing.unit === 'ML' || ing.unit === 'LT' ? '$/lt' : '$/u'}
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-2 text-right font-bold text-[#221F1D]">
+                          <td className="p-2 text-right font-bold text-amber-950">
                             ${Number(ing.totalCost || 0).toFixed(2)}
                           </td>
                           <td className="p-2 text-center">
